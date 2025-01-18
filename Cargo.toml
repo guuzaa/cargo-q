@@ -1,0 +1,10 @@
+[package]
+name = "cargo-q"
+version = "0.1.0"
+edition = "2021"
+description = "A cargo subcommand for running cargo multiple commands in a time"
+keywords = ["cargo"]
+categories = ["command-line-utilities", "development-tools::cargo-plugins"]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/guuzaa/cargo-q"
