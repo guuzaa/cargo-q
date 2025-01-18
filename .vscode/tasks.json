@@ -1,0 +1,126 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "cargo build",
+        "type": "cargo",
+        "command": "build",
+        "args": [
+          "-r"
+        ],
+        "group": {
+          "kind": "build",
+          "isDefault": false
+        },
+        "problemMatcher": [
+          "$rustc"
+        ],
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "close": false
+        }
+      },
+      {
+        "label": "cargo check",
+        "type": "cargo",
+        "command": "check",
+        "group": {
+          "kind": "test",
+          "isDefault": false
+        },
+        "problemMatcher": [
+          "$rustc"
+        ],
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "close": false
+        }
+      },
+      {
+        "label": "cargo clean",
+        "type": "cargo",
+        "command": "clean",
+        "group": {
+          "kind": "build",
+          "isDefault": false
+        },
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "close": false
+        }
+      },
+      {
+        "label": "cargo run",
+        "type": "cargo",
+        "command": "run",
+        "group": {
+          "kind": "build",
+          "isDefault": false
+        },
+        "problemMatcher": [
+          "$rustc"
+        ],
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "close": false
+        }
+      },
+      {
+        "label": "cargo test",
+        "type": "cargo",
+        "command": "test",
+        "group": {
+          "kind": "test",
+          "isDefault": false
+        },
+        "problemMatcher": [
+          "$rustc"
+        ],
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "close": false
+        }
+      },
+      {
+        "label": "cargo clippy",
+        "type": "cargo",
+        "command": "clippy",
+        "args": [
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "group": {
+          "kind": "test",
+          "isDefault": false
+        },
+        "problemMatcher": [
+          "$rustc"
+        ],
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "close": false
+        }
+      },
+      {
+        "label": "cargo fmt",
+        "type": "cargo",
+        "command": "fmt",
+        "group": {
+          "kind": "build",
+          "isDefault": false
+        },
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "close": false
+        }
+      }
+    ]
+  }
