@@ -1,15 +1,18 @@
-use std::process::Command;
+mod cli;
+mod executor;
+mod parser;
+mod routine;
+
+use cli::Cli;
+use parser::Parser;
 
 fn main() {
-    let output = Command::new("cargo")
-        .arg("version")
-        .output()
-        .expect("Failed to execute cargo --version");
+    let cli = Cli::parse();
+    let parser = Parser::new();
+    let executor = parser.parse(&cli.command_string, cli.parallel, cli.verbose);
 
-    if output.status.success() {
-        let version = String::from_utf8_lossy(&output.stdout);
-        println!("Cargo version: {}", version.trim());
-    } else {
-        eprintln!("Failed to get Cargo version");
+    if let Err(e) = executor.execute() {
+        eprintln!("Error executing commands: {}", e);
+        std::process::exit(1);
     }
 }

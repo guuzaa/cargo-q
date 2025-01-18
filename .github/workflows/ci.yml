@@ -1,0 +1,47 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Check formatting
+      if: matrix.os == 'ubuntu-latest'
+      run: cargo fmt -- --check
+    
+    - name: Cargo cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+            ${{ runner.os }}-cargo-
+    
+    - name: Build on ${{ matrix.os }}
+      run: cargo build --verbose
+    
+    - name: Run tests on ${{ matrix.os }}
+      run: cargo test --verbose
+    
+    - name: Run clippy
+      if: matrix.os == 'ubuntu-latest'
+      run: cargo clippy -- -D warnings
