@@ -1,7 +1,7 @@
 use std::io;
 use std::process::{Command, Output, Stdio};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct Routine {
     pub(crate) name: String,
     pub(crate) args: Vec<String>,
