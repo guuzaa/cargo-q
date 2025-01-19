@@ -42,14 +42,14 @@ cargo q check
 
 #### Sequential Execution (Space Separator)
 ```bash
-# Run commands sequentially, each depending on previous command's success
-cargo q "check test"      # Runs check, then test if check succeeds
+# Run commands sequentially and independently
+cargo q "check test"      # Runs check, then test
 cargo q 'check test'      # Single and double quotes both work
 ```
 
 #### Independent Commands (`;` Separator)
 ```bash
-# Run commands sequentially but independently
+# Run commands sequentially and independently
 cargo q "test --features feature1 ; run"  # Commands with parameters need ; separator
 ```
 
