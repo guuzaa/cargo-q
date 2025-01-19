@@ -1,5 +1,5 @@
 use std::io;
-use std::process::{Command, Stdio};
+use std::process::{Command, Output, Stdio};
 
 #[derive(Debug)]
 pub(crate) struct Routine {
@@ -8,26 +8,24 @@ pub(crate) struct Routine {
 }
 
 impl Routine {
-    pub fn run(&self, verbose: bool) -> io::Result<bool> {
-        let stdout = if verbose {
-            Stdio::inherit()
+    pub fn run(&self, verbose: bool) -> io::Result<(bool, Output)> {
+        let mut cmd = Command::new("cargo");
+        cmd.arg(&self.name).args(&self.args);
+
+        if verbose {
+            cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+            let status = cmd.status()?;
+            Ok((
+                status.success(),
+                Output {
+                    status,
+                    stdout: Vec::new(),
+                    stderr: Vec::new(),
+                },
+            ))
         } else {
-            Stdio::null()
-        };
-
-        let stderr = if verbose {
-            Stdio::inherit()
-        } else {
-            Stdio::null()
-        };
-
-        let status = Command::new("cargo")
-            .arg(&self.name)
-            .args(&self.args)
-            .stdout(stdout)
-            .stderr(stderr)
-            .status()?;
-
-        Ok(status.success())
+            let output = cmd.output()?;
+            Ok((output.status.success(), output))
+        }
     }
 }
