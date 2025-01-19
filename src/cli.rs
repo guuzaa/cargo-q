@@ -7,24 +7,24 @@ use clap::Parser;
 #[command(author)]
 pub struct Cli {
     /// Commands to execute
-    /// 
+    ///
     /// Supports multiple separators:
-    /// 
+    ///
     ///   space: Independent commands (e.g., "check test")
-    /// 
+    ///
     ///   ;    : Independent commands with args (e.g., "test --features f1 ; run")
-    /// 
+    ///
     ///   &    : Dependent commands (e.g., "check & test & run")
     pub command_string: String,
 
     /// Run commands in verbose mode
-    /// 
+    ///
     /// Shows the output of each command as it runs
     #[arg(short, long)]
     pub verbose: bool,
 
     /// Run commands in parallel
-    /// 
+    ///
     /// Only works with independent commands (space or ; separator)
     #[arg(short, long)]
     pub parallel: bool,

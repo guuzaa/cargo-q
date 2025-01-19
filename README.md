@@ -7,7 +7,7 @@ Cargo subcommand to run multiple Cargo commands in a time.
 
 - ✅ Add sequential execution
 - ✅ Add ; as command separator
-- ❌ Add & as command separator
+- ✅ Add & as command separator
 - ❌ Add > as command separator
 - ❌ Add parallel execution
 
