@@ -1,7 +1,7 @@
 use std::io;
 use std::process::{Command, Output, Stdio};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct Routine {
     pub(crate) name: String,
     pub(crate) args: Vec<String>,
@@ -27,5 +27,9 @@ impl Routine {
             let output = cmd.output()?;
             Ok((output.status.success(), output))
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
     }
 }
