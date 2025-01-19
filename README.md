@@ -6,10 +6,11 @@ Cargo subcommand to run multiple Cargo commands in a time.
 <summary>TODO</summary>
 
 - ✅ Add sequential execution
-- ✅ Add ; as command separator
-- ✅ Add & as command separator
-- ❌ Add > as command separator
-- ❌ Add parallel execution
+- ✅ Add ; as command separator for independent commands
+- ✅ Add & as command separator for dependent commands
+- ✅ Add parallel execution between independent commands
+- ❌ Add > as command separator for dependent commands
+- ❌ Support mixed separators
 
 </details>
 

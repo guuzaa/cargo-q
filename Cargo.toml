@@ -1,6 +1,6 @@
 [package]
 name = "cargo-q"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "A cargo subcommand for running multiple cargo commands in a time"
 keywords = ["cargo", "subcommand", "plugin"]
