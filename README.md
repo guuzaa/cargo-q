@@ -1,48 +1,80 @@
 # cargo-q
 
-Cargo subcommand to run multiple Cargo commands in a time.
+A Cargo subcommand that allows running multiple Cargo commands in a time.
 
 <details>
 <summary>TODO</summary>
 
 - ✅ Add sequential execution
-- ✅ Add ; as command separator
-- ✅ Add & as command separator
-- ❌ Add > as command separator
-- ❌ Add parallel execution
+- ✅ Add ; as command separator for independent commands
+- ✅ Add & as command separator for dependent commands
+- ✅ Add parallel execution between independent commands
+- ❌ Add > as command separator for dependent commands
+- ❌ Support mixed separators
 
 </details>
 
+## Installation
+
+```bash
+cargo install cargo-q
+```
+
+## Features
+
+- Run multiple Cargo commands sequentially
+- Use different separators for command execution:
+  - Space: Run commands sequentially (independent execution)
+  - `;`: Run independent commands sequentially
+  - `&`: Run commands with dependencies (each command depends on previous command's success)
+- Support parallel execution for independent commands
+- Verbose mode for detailed output
+
 ## Usage
 
-### Run a command
+### Run a Single Command
 
 ```bash
-cargo q cmd
+cargo q check
 ```
 
-### Run multiple commands
+### Run Multiple Commands
+
+#### Sequential Execution (Space Separator)
+```bash
+# Run commands sequentially and independently
+cargo q "check test"      # Runs check, then test
+cargo q 'check test'      # Single and double quotes both work
+```
+
+#### Independent Commands (`;` Separator)
+```bash
+# Run commands sequentially and independently
+cargo q "test --features feature1 ; run"  # Commands with parameters need ; separator
+```
+
+#### Dependent Commands (`&` Separator)
+```bash
+# Run commands with explicit dependencies
+cargo q "check & test & run"  # Each command runs only if previous command succeeds
+cargo q "check&test&run"      # Spaces around & are optional
+```
+
+### Parallel Execution
 
 ```bash
-# default quiet mode
-cargo q "check test" # run `check` first then test whether `check` is successful
-cargo q 'check test' # ' and " are the same
-cargo q "test --features feature1 ; run" # if a command has dash or parameters, use ; as separator
-
-cargo q "check & test & run" # run `check` first, then `test` if `check` is successful, and `run` if both are successful
-cargo q "check&test&run" # same as above
-
-cargo q "test > analyze" # run `test` first, then `analyze` with `test`'s output
-cargo q "test>analyze" # same as above
-
-# verbose mode
-cargo q -v "check test" # run `check` first, then `test` if `check` is successful
-cargo q --verbose "check test" # same as above
+# Run independent commands in parallel
+cargo q -p "build -r; build"      # Run both commands in parallel
+cargo q --parallel "check; test"   # Same as above
 ```
 
-### Run commands in parallel
+### Verbose Output
 
 ```bash
-cargo q -p "build -r; build" # run `build -r` and `build` in parallel
-cargo q --parallel "build -r; build" # same as above
+cargo q -v "check test"       # Show detailed output
+cargo q --verbose "check test"  # Same as above
 ```
+
+## License
+
+Licensed under Apache-2.0 license ([LICENSE](LICENSE) or http://opensource.org/licenses/Apache-2.0)
