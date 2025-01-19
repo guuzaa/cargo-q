@@ -1,7 +1,7 @@
 use crate::parser::Strategy;
+use crate::process::{ColorExt, ExecutionSummary};
 use crate::routine::Routine;
 use std::io::{self, Error, ErrorKind};
-use std::time::Instant;
 
 pub(crate) struct Executor {
     pub(super) parallel: bool,
@@ -28,47 +28,53 @@ impl Executor {
             ));
         }
 
-        let start_time = Instant::now();
-        let mut success_count = 0;
         let total_commands = self.routines.len();
+        let mut summary = ExecutionSummary::new(total_commands);
 
-        for cmd in &self.routines {
-            let success = cmd.run(self.verbose)?;
+        for (idx, cmd) in self.routines.iter().enumerate() {
+            let cmd_str = if cmd.args.is_empty() {
+                cmd.name.clone()
+            } else {
+                format!("{} {}", cmd.name, cmd.args.join(" "))
+            };
+            println!(
+                "\n    {} {}",
+                format!("[{}/{}]", idx + 1, total_commands).bold(),
+                cmd_str
+            );
 
-            match self.strategy {
-                Strategy::Independent => {
-                    // Continue to next command regardless of success
-                    if success {
-                        success_count += 1;
+            match cmd.run(self.verbose) {
+                Ok((success, output)) => {
+                    match self.strategy {
+                        Strategy::Independent => {
+                            if success {
+                                summary.increment_success();
+                            } else if !output.stderr.is_empty() {
+                                eprintln!("error: Command failed but continuing due to Independent strategy");
+                                eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+                            }
+                        }
+                        Strategy::Dependent | Strategy::Pipe => {
+                            if !success {
+                                if !output.stderr.is_empty() {
+                                    eprintln!("error: {}", String::from_utf8_lossy(&output.stderr));
+                                }
+                                return Err(Error::new(
+                                    ErrorKind::Other,
+                                    format!("Command failed: cargo {}", cmd_str),
+                                ));
+                            }
+                            summary.increment_success();
+                        }
                     }
                 }
-                Strategy::Dependent | Strategy::Pipe => {
-                    // Stop if command failed
-                    if !success {
-                        let elapsed = start_time.elapsed();
-                        eprintln!(
-                            "Summary: {}/{} commands succeeded ({:.2}s)",
-                            success_count,
-                            total_commands,
-                            elapsed.as_secs_f32()
-                        );
-                        return Err(Error::new(
-                            ErrorKind::Other,
-                            format!("Command 'cargo {} {}' failed", cmd.name, cmd.args.join(" ")),
-                        ));
-                    }
-                    success_count += 1;
+                Err(e) => {
+                    eprintln!("error: Failed to execute command: {}", e);
+                    return Err(e);
                 }
             }
         }
 
-        let elapsed = start_time.elapsed();
-        println!(
-            "Summary: {}/{} commands succeeded ({:.2}s)",
-            success_count,
-            total_commands,
-            elapsed.as_secs_f32()
-        );
         Ok(())
     }
 }

@@ -17,11 +17,12 @@ pub struct Cli {
 
 impl Cli {
     pub fn parse() -> Self {
-        // Skip the first argument which is "q" for cargo subcommands
-        let mut args = std::env::args().collect::<Vec<_>>();
-        if args.len() >= 2 && args[1] == "q" {
-            args.remove(1);
-        }
+        // Skip the all arguments which are "q" for cargo subcommands
+        let args = std::env::args()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .filter(|arg| arg != "q")
+            .collect::<Vec<_>>();
 
         Self::parse_from(args)
     }
