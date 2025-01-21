@@ -24,21 +24,19 @@ impl ExecutionStrategy for ParallelStrategy {
             let process_info = format!("[{}/{}]", idx + 1, total_commands);
             let cmd = cmd.clone();
 
-            pool.execute(move || {
-                println!("\n    {} {}", process_info.bold(), cmd_str);
-
-                match cmd.run(verbose) {
-                    Ok((success, output)) => {
-                        if success {
-                            summary.lock().unwrap().increment_success();
-                        } else if !output.stderr.is_empty() {
-                            eprintln!("error: {} Command failed", cmd_str);
-                            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-                        }
+            pool.execute(move || match cmd.run(verbose) {
+                Ok((success, output)) => {
+                    println!("\n    {} {}", process_info.bold(), cmd_str);
+                    if success {
+                        summary.lock().unwrap().increment_success();
+                    } else if !output.stderr.is_empty() {
+                        eprintln!("error: {} Command failed", cmd_str);
+                        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
                     }
-                    Err(e) => {
-                        eprintln!("error: {} Failed to execute command: {}", cmd_str, e);
-                    }
+                }
+                Err(e) => {
+                    println!("\n    {} {}", process_info.bold(), cmd_str);
+                    eprintln!("error: {} Failed to execute command: {}", cmd_str, e);
                 }
             });
         }
