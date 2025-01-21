@@ -3,6 +3,7 @@ mod executor;
 mod parser;
 mod process;
 mod routine;
+mod strategy;
 mod thread_pool;
 
 use cli::Cli;

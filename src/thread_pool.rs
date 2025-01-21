@@ -74,3 +74,31 @@ impl Worker {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    #[test]
+    fn test_thread_pool_executes_jobs() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let runs = 10;
+
+        {
+            let pool = ThreadPool::new(2);
+            for _ in 0..runs {
+                let counter_clone = Arc::clone(&counter);
+                pool.execute(move || {
+                    sleep(Duration::from_millis(10)); // Small delay to ensure we're actually using threads
+                    counter_clone.fetch_add(1, Ordering::SeqCst);
+                });
+            }
+        }
+
+        assert_eq!(counter.load(Ordering::SeqCst), runs);
+    }
+}
