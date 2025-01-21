@@ -73,3 +73,24 @@ impl Drop for ExecutionSummary {
         self.print_summary();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_execution_summary() {
+        let mut summary = ExecutionSummary::new(3);
+        assert_eq!(summary.success_count, 0);
+        assert_eq!(summary.total_commands, 3);
+
+        summary.increment_success();
+        assert_eq!(summary.success_count, 1);
+
+        summary.increment_success();
+        assert_eq!(summary.success_count, 2);
+
+        summary.increment_success();
+        assert_eq!(summary.success_count, 3);
+    }
+}
