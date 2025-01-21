@@ -1,16 +1,6 @@
 use crate::executor::Executor;
 use crate::routine::Routine;
-
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Strategy {
-    /// Commands are independent (space or ; separator)
-    Independent,
-    /// Commands are dependent on previous success (& separator)
-    Dependent,
-    /// Commands pipe output to next command (> separator)
-    Pipe,
-}
+use crate::strategy::Strategy;
 
 pub struct Parser;
 

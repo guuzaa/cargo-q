@@ -1,6 +1,7 @@
-use crate::parser::Strategy;
 use crate::routine::Routine;
-use crate::strategy::{DependentStrategy, ExecutionStrategy, ParallelStrategy, SequentialStrategy};
+use crate::strategy::{
+    DependentStrategy, ExecutionStrategy, ParallelStrategy, SequentialStrategy, Strategy,
+};
 use std::io::{self, Error, ErrorKind};
 
 pub(crate) struct Executor {
