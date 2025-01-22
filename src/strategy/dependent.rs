@@ -1,5 +1,5 @@
 use super::ExecutionStrategy;
-use crate::process::{ColorExt, ExecutionSummary};
+use crate::process::ExecutionSummary;
 use crate::routine::Routine;
 use std::io::{self, Error, ErrorKind};
 
@@ -7,23 +7,19 @@ pub struct DependentStrategy;
 
 impl ExecutionStrategy for DependentStrategy {
     fn execute(&self, routines: &[Routine], verbose: bool) -> io::Result<()> {
-        let total_commands = routines.len();
-        let mut summary = ExecutionSummary::new(total_commands);
-
-        for (idx, cmd) in routines.iter().enumerate() {
+        let mut summary = ExecutionSummary::new(routines.len());
+        for cmd in routines {
             let cmd_str = if cmd.args.is_empty() {
                 cmd.name.clone()
             } else {
                 format!("{} {}", cmd.name, cmd.args.join(" "))
             };
-            println!(
-                "\n    {} {}",
-                format!("[{}/{}]", idx + 1, total_commands).bold(),
-                cmd_str
-            );
 
             match cmd.run(verbose) {
                 Ok((success, output)) => {
+                    summary.increment_execution();
+                    summary.print_process(&cmd_str);
+
                     if !success {
                         if !output.stderr.is_empty() {
                             eprintln!("error: {}", String::from_utf8_lossy(&output.stderr));
