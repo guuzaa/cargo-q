@@ -1,5 +1,5 @@
 use super::{ExecutionStrategy, MAX_THREADS};
-use crate::process::{ColorExt, ExecutionSummary};
+use crate::process::ExecutionSummary;
 use crate::routine::Routine;
 use crate::thread_pool::ThreadPool;
 use std::io;
@@ -13,7 +13,7 @@ impl ExecutionStrategy for ParallelStrategy {
         let total_commands = routines.len();
         let pool = ThreadPool::new(total_commands.min(MAX_THREADS));
 
-        for (idx, cmd) in routines.iter().enumerate() {
+        for cmd in routines.iter() {
             let summary = Arc::clone(&summary);
             let cmd_str = if cmd.args.is_empty() {
                 cmd.name.clone()
@@ -21,22 +21,21 @@ impl ExecutionStrategy for ParallelStrategy {
                 format!("{} {}", cmd.name, cmd.args.join(" "))
             };
 
-            let process_info = format!("[{}/{}]", idx + 1, total_commands);
             let cmd = cmd.clone();
-
-            pool.execute(move || match cmd.run(verbose) {
-                Ok((success, output)) => {
-                    println!("\n    {} {}", process_info.bold(), cmd_str);
-                    if success {
-                        summary.lock().unwrap().increment_success();
-                    } else if !output.stderr.is_empty() {
-                        eprintln!("error: {} Command failed", cmd_str);
-                        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+            pool.execute(move || {
+                let ret = cmd.run(verbose);
+                summary.lock().unwrap().print_process(&cmd_str);
+                match ret {
+                    Ok((success, output)) => {
+                        if success {
+                            summary.lock().unwrap().increment_success();
+                        } else if !output.stderr.is_empty() {
+                            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+                        }
                     }
-                }
-                Err(e) => {
-                    println!("\n    {} {}", process_info.bold(), cmd_str);
-                    eprintln!("error: {} Failed to execute command: {}", cmd_str, e);
+                    Err(e) => {
+                        eprintln!("error: {} Failed to execute command: {}", cmd_str, e);
+                    }
                 }
             });
         }

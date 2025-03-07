@@ -1,5 +1,5 @@
 use super::ExecutionStrategy;
-use crate::process::{ColorExt, ExecutionSummary};
+use crate::process::ExecutionSummary;
 use crate::routine::Routine;
 use std::io;
 
@@ -10,31 +10,23 @@ impl ExecutionStrategy for SequentialStrategy {
         let total_commands = routines.len();
         let mut summary = ExecutionSummary::new(total_commands);
 
-        for (idx, cmd) in routines.iter().enumerate() {
+        for cmd in routines.iter() {
             let cmd_str = if cmd.args.is_empty() {
                 cmd.name.clone()
             } else {
                 format!("{} {}", cmd.name, cmd.args.join(" "))
             };
-            println!(
-                "\n    {} {}",
-                format!("[{}/{}]", idx + 1, total_commands).bold(),
-                cmd_str
-            );
+            summary.print_process(&cmd_str);
 
             match cmd.run(verbose) {
                 Ok((success, output)) => {
                     if success {
                         summary.increment_success();
                     } else if !output.stderr.is_empty() {
-                        eprintln!(
-                            "error: Command failed but continuing due to Independent strategy"
-                        );
-                        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+                        println!("{}", String::from_utf8_lossy(&output.stderr));
                     }
                 }
                 Err(e) => {
-                    eprintln!("error: Failed to execute command: {}", e);
                     return Err(e);
                 }
             }
