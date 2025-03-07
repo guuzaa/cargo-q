@@ -2,18 +2,6 @@
 
 A Cargo subcommand that allows running multiple Cargo commands in a time.
 
-<details>
-<summary>TODO</summary>
-
-- ✅ Add sequential execution
-- ✅ Add ; as command separator for independent commands
-- ✅ Add & as command separator for dependent commands
-- ✅ Add parallel execution between independent commands
-- ❌ Add > as command separator for dependent commands
-- ❌ Support mixed separators
-
-</details>
-
 ## Installation
 
 ```bash

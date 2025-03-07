@@ -9,6 +9,7 @@ license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/guuzaa/cargo-q"
 exclude = [".github", ".vscode", ".gitignore"]
+documentation = "https://docs.rs/cargo-q"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
