@@ -30,6 +30,7 @@ impl fmt::Display for ColoredString {
 
 pub struct ExecutionSummary {
     success_count: usize,
+    running_count: usize,
     total_commands: usize,
     start_time: Instant,
 }
@@ -38,6 +39,7 @@ impl ExecutionSummary {
     pub fn new(total_commands: usize) -> Self {
         Self {
             success_count: 0,
+            running_count: 0,
             total_commands,
             start_time: Instant::now(),
         }
@@ -47,7 +49,24 @@ impl ExecutionSummary {
         self.success_count += 1;
     }
 
+    pub fn print_process(&mut self, cmd: &str) {
+        self.running_count += 1;
+        println!(
+            "\n    {} {}",
+            format!("[{}/{}]", self.running_count, self.total_commands).bold(),
+            cmd
+        );
+    }
+
     fn print_summary(&mut self) {
+        if self.success_count != self.total_commands {
+            println!(
+                "\n{} succeeded, {} failed, {} skipped",
+                self.success_count,
+                self.running_count - self.success_count,
+                self.total_commands - self.running_count
+            );
+        }
         let elapsed = self.start_time.elapsed().as_secs_f32();
         let status = if self.success_count == self.total_commands {
             "Finished".green()
@@ -55,16 +74,9 @@ impl ExecutionSummary {
             "Failed".red()
         };
         println!(
-            "\n{} {} command(s) in {:.2}s",
+            "{} {} command(s) in {:.2}s\n",
             status, self.total_commands, elapsed
         );
-        if self.success_count != self.total_commands {
-            println!(
-                "  {} succeeded, {} failed",
-                self.success_count,
-                self.total_commands - self.success_count
-            );
-        }
     }
 }
 

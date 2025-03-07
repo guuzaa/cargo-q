@@ -1,6 +1,6 @@
 [package]
 name = "cargo-q"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 description = "A cargo subcommand for running multiple cargo commands in a time"
 keywords = ["cargo", "subcommand", "plugin"]
@@ -9,6 +9,7 @@ license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/guuzaa/cargo-q"
 exclude = [".github", ".vscode", ".gitignore"]
+documentation = "https://docs.rs/cargo-q"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }

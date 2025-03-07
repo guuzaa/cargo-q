@@ -15,7 +15,7 @@ fn main() {
     let executor = parser.parse(&cli.command_string, cli.parallel, cli.verbose);
 
     if let Err(e) = executor.execute() {
-        eprintln!("Error executing commands: {}", e);
+        eprintln!("{}", e);
         std::process::exit(1);
     }
 }
