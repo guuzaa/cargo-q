@@ -11,11 +11,8 @@ cargo install cargo-q
 ## Features
 
 - Run multiple Cargo commands sequentially
-- Use different separators for command execution:
-  - Space: Run commands sequentially (independent execution)
-  - `;`: Run independent commands sequentially
-  - `&`: Run commands with dependencies (each command depends on previous command's success)
-- Support parallel execution for independent commands
+- Commands are separated by spaces
+- Support parallel execution for commands
 - Verbose mode for detailed output
 
 ## Usage
@@ -30,30 +27,25 @@ cargo q check
 
 #### Sequential Execution (Space Separator)
 ```bash
-# Run commands sequentially and independently
-cargo q "check test"      # Runs check, then test
-cargo q 'check test'      # Single and double quotes both work
+# Run commands sequentially
+cargo q check test      # Runs check, then test
+cargo q "check test"    # Same as above
+cargo q 'check test'    # Single and double quotes both work
 ```
 
-#### Independent Commands (`;` Separator)
-```bash
-# Run commands sequentially and independently
-cargo q "test --features feature1 ; run"  # Commands with parameters need ; separator
-```
+### Commands with Arguments
 
-#### Dependent Commands (`&` Separator)
 ```bash
-# Run commands with explicit dependencies
-cargo q "check & test & run"  # Each command runs only if previous command succeeds
-cargo q "check&test&run"      # Spaces around & are optional
+# Commands with arguments need to be quoted
+cargo q "test --features feature1 run"  # Run test with features, then run
 ```
 
 ### Parallel Execution
 
 ```bash
-# Run independent commands in parallel
-cargo q -p "build -r; build"      # Run both commands in parallel
-cargo q --parallel "check; test"   # Same as above
+# Run commands in parallel
+cargo q -p "build -r build"      # Run both commands in parallel
+cargo q --parallel "check test"   # Same as above
 ```
 
 ### Verbose Output

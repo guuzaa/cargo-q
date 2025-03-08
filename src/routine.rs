@@ -1,10 +1,21 @@
+use std::fmt;
 use std::io;
 use std::process::{Command, Output, Stdio};
 
 #[derive(Debug, Default, Clone)]
-pub(crate) struct Routine {
-    pub(crate) name: String,
-    pub(crate) args: Vec<String>,
+pub struct Routine {
+    pub name: String,
+    pub args: Vec<String>,
+}
+
+impl fmt::Display for Routine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)?;
+        for arg in &self.args {
+            write!(f, " {}", arg)?;
+        }
+        Ok(())
+    }
 }
 
 impl Routine {
@@ -27,9 +38,5 @@ impl Routine {
             let output = cmd.output()?;
             Ok((output.status.success(), output))
         }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.name.is_empty()
     }
 }
