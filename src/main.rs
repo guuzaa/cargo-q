@@ -11,7 +11,7 @@ use parser::Parser;
 
 fn main() {
     let cli = Cli::parse();
-    let executor = Parser::default().parse(&cli.commands, cli.parallel, cli.verbose);
+    let executor = Parser.parse(&cli.commands, cli.parallel, cli.verbose);
     if let Err(e) = executor.execute() {
         eprintln!("{}", e);
         std::process::exit(1);
