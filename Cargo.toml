@@ -1,8 +1,8 @@
 [package]
 name = "cargo-q"
-version = "0.1.6"
+version = "0.2.0"
 edition = "2021"
-description = "A cargo subcommand for running multiple cargo commands in a time"
+description = "A Cargo subcommand for running multiple Cargo commands sequentially or in parallel."
 keywords = ["cargo", "subcommand", "plugin"]
 categories = ["command-line-utilities", "development-tools::cargo-plugins"]
 license = "Apache-2.0"

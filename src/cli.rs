@@ -8,14 +8,15 @@ use clap::Parser;
 pub struct Cli {
     /// Commands to execute
     ///
-    /// Supports multiple separators:
+    /// Commands are separated by spaces:
     ///
-    ///   space: Independent commands (e.g., "check test")
+    ///   e.g., check test run
     ///
-    ///   ;    : Independent commands with args (e.g., "test --features f1 ; run")
+    /// Note: For commands with arguments, you need to quote the entire command:
     ///
-    ///   &    : Dependent commands (e.g., "check & test & run")
-    pub command_string: String,
+    ///   e.g., "test --features f1" "run --release"
+    #[arg(required = true, allow_hyphen_values = true)]
+    pub commands: Vec<String>,
 
     /// Run commands in verbose mode
     ///
@@ -25,7 +26,7 @@ pub struct Cli {
 
     /// Run commands in parallel
     ///
-    /// Only works with independent commands (space or ; separator)
+    /// Runs all commands in parallel instead of sequentially
     #[arg(short, long)]
     pub parallel: bool,
 }
@@ -34,8 +35,6 @@ impl Cli {
     pub fn parse() -> Self {
         // Skip the all arguments which are "q" for cargo subcommands
         let args = std::env::args()
-            .collect::<Vec<_>>()
-            .into_iter()
             .filter(|arg| arg != "q")
             .collect::<Vec<_>>();
 
