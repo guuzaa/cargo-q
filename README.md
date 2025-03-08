@@ -1,6 +1,6 @@
 # cargo-q
 
-A Cargo subcommand that allows running multiple Cargo commands in a time.
+A Cargo subcommand for running multiple cargo commands sequentially or in parallel.
 
 ## Installation
 
@@ -25,34 +25,32 @@ cargo q check
 
 ### Run Multiple Commands
 
-#### Sequential Execution (Space Separator)
 ```bash
 # Run commands sequentially
 cargo q check test      # Runs check, then test
-cargo q "check test"    # Same as above
-cargo q 'check test'    # Single and double quotes both work
 ```
 
 ### Commands with Arguments
 
 ```bash
-# Commands with arguments need to be quoted
-cargo q "test --features feature1 run"  # Run test with features, then run
+# For commands with arguments
+cargo q "test --no-run"   # Run test with --no-run flag
+cargo q "test --features feature1"  # Use quotes for complex arguments
 ```
 
 ### Parallel Execution
 
 ```bash
 # Run commands in parallel
-cargo q -p "build -r build"      # Run both commands in parallel
-cargo q --parallel "check test"   # Same as above
+cargo q -p check test      # Run both commands in parallel
+cargo q --parallel check test   # Same as above
 ```
 
 ### Verbose Output
 
 ```bash
-cargo q -v "check test"       # Show detailed output
-cargo q --verbose "check test"  # Same as above
+cargo q -v check test       # Show detailed output
+cargo q --verbose check test  # Same as above
 ```
 
 ## License
