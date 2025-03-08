@@ -1,6 +1,6 @@
 # cargo-q
 
-A Cargo subcommand for running multiple cargo commands sequentially or in parallel.
+A Cargo subcommand for running multiple Cargo commands sequentially or in parallel.
 
 ## Installation
 
