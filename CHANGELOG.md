@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1] - 2026-08-25
+
+### Added
+- Added n2-like progress display for better user feedback
+- Added support for Rust 1.78 as minimum supported Rust version (MSRV)
+
+### Fixed
+- Fixed test configuration for MSRV 1.78 on macOS
+
 ## [0.2.0] - 2025-03-08
 
 ### Changed
