@@ -14,3 +14,7 @@ documentation = "https://docs.rs/cargo-q"
 
 [dependencies]
 clap = { version = "4.5.26", features = ["derive"] }
+
+[profile.release]
+opt-level = 2
+lto = "thin"
