@@ -10,7 +10,7 @@ pub struct Routine {
 
 impl fmt::Display for Routine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name)?;
+        write!(f, "cargo {}", self.name)?;
         for arg in &self.args {
             write!(f, " {}", arg)?;
         }

@@ -23,6 +23,7 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
+        toolchain: ${{ matrix.os == 'macos-latest' && '1.78.0' || 'stable' }}
     
     - name: Check formatting
       if: matrix.os == 'ubuntu-latest'

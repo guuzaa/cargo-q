@@ -35,9 +35,8 @@ mod tests {
 
     #[test]
     fn test_parse_space_separated() {
-        let parser = Parser::default();
         let commands = vec!["check".to_string(), "test".to_string()];
-        let executor = parser.parse(&commands, false, false);
+        let executor = Parser.parse(&commands, false, false);
 
         assert_eq!(executor.routines.len(), 2);
 
@@ -50,12 +49,11 @@ mod tests {
 
     #[test]
     fn test_parse_with_args() {
-        let parser = Parser::default();
         let commands = vec![
             "test --features feature1".to_string(),
             "run --release".to_string(),
         ];
-        let executor = parser.parse(&commands, false, false);
+        let executor = Parser.parse(&commands, false, false);
 
         assert_eq!(executor.routines.len(), 2);
 
@@ -68,9 +66,8 @@ mod tests {
 
     #[test]
     fn test_parse_with_spaces() {
-        let parser = Parser::default();
         let commands = vec!["check".to_string(), "test".to_string(), "run".to_string()];
-        let executor = parser.parse(&commands, false, false);
+        let executor = Parser.parse(&commands, false, false);
 
         assert_eq!(executor.routines.len(), 3);
 

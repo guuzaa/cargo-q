@@ -1,5 +1,5 @@
 use super::ExecutionStrategy;
-use crate::process::ExecutionSummary;
+use crate::progress::new_progress;
 use crate::routine::Routine;
 use std::io;
 
@@ -7,26 +7,18 @@ pub struct SequentialStrategy;
 
 impl ExecutionStrategy for SequentialStrategy {
     fn execute(&self, routines: &[Routine], verbose: bool) -> io::Result<()> {
-        let total_commands = routines.len();
-        let mut summary = ExecutionSummary::new(total_commands);
+        let progress = new_progress(routines.len(), verbose);
 
-        for cmd in routines.iter() {
-            let cmd_str = if cmd.args.is_empty() {
-                cmd.name.clone()
-            } else {
-                format!("{} {}", cmd.name, cmd.args.join(" "))
-            };
-            summary.print_process(&cmd_str);
+        for (id, cmd) in routines.iter().enumerate() {
+            let cmd_str = cmd.to_string();
+            progress.task_started(id, &cmd_str);
 
             match cmd.run(verbose) {
                 Ok((success, output)) => {
-                    if success {
-                        summary.increment_success();
-                    } else if !output.stderr.is_empty() {
-                        println!("{}", String::from_utf8_lossy(&output.stderr));
-                    }
+                    progress.task_finished(id, &cmd_str, success, &output.stderr);
                 }
                 Err(e) => {
+                    progress.task_finished(id, &cmd_str, false, e.to_string().as_bytes());
                     return Err(e);
                 }
             }

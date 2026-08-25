@@ -1,7 +1,7 @@
 mod cli;
 mod executor;
 mod parser;
-mod process;
+mod progress;
 mod routine;
 mod strategy;
 mod thread_pool;

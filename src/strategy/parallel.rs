@@ -1,40 +1,33 @@
 use super::{ExecutionStrategy, MAX_THREADS};
-use crate::process::ExecutionSummary;
+use crate::progress::new_progress;
 use crate::routine::Routine;
 use crate::thread_pool::ThreadPool;
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub struct ParallelStrategy;
 
 impl ExecutionStrategy for ParallelStrategy {
     fn execute(&self, routines: &[Routine], verbose: bool) -> io::Result<()> {
-        let summary = Arc::new(Mutex::new(ExecutionSummary::new(routines.len())));
-        let total_commands = routines.len();
-        let pool = ThreadPool::new(total_commands.min(MAX_THREADS));
+        let progress = new_progress(routines.len(), verbose);
+        let pool = ThreadPool::new(routines.len().min(MAX_THREADS));
 
-        for cmd in routines.iter() {
-            let summary = Arc::clone(&summary);
-            let cmd_str = if cmd.args.is_empty() {
-                cmd.name.clone()
-            } else {
-                format!("{} {}", cmd.name, cmd.args.join(" "))
-            };
-
+        for (id, cmd) in routines.iter().enumerate() {
+            let progress = Arc::clone(&progress);
+            let cmd_str = cmd.to_string();
             let cmd = cmd.clone();
             pool.execute(move || {
-                let ret = cmd.run(verbose);
-                summary.lock().unwrap().print_process(&cmd_str);
-                match ret {
+                progress.task_started(id, &cmd_str);
+                match cmd.run(verbose) {
                     Ok((success, output)) => {
-                        if success {
-                            summary.lock().unwrap().increment_success();
-                        } else if !output.stderr.is_empty() {
-                            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-                        }
+                        progress.task_finished(id, &cmd_str, success, &output.stderr);
                     }
                     Err(e) => {
-                        eprintln!("error: {} Failed to execute command: {}", cmd_str, e);
+                        progress.task_finished(id, &cmd_str, false, &[]);
+                        progress.log(&format!(
+                            "error: {} Failed to execute command: {}",
+                            cmd_str, e
+                        ));
                     }
                 }
             });

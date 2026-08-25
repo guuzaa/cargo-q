@@ -3,7 +3,9 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(name = "cargo-q")]
 #[command(version)]
-#[command(about = "A cargo subcommand for running multiple cargo commands in a time")]
+#[command(
+    about = "A Cargo subcommand for running multiple Cargo commands sequentially or in parallel."
+)]
 #[command(author)]
 pub struct Cli {
     /// Commands to execute
