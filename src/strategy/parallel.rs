@@ -14,7 +14,7 @@ impl ExecutionStrategy for ParallelStrategy {
 
         for (id, cmd) in routines.iter().enumerate() {
             let progress = Arc::clone(&progress);
-            let cmd_str = format!("Cargo {}", cmd.to_string());
+            let cmd_str = cmd.to_string();
             let cmd = cmd.clone();
             pool.execute(move || {
                 progress.task_started(id, &cmd_str);

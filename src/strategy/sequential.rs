@@ -10,7 +10,7 @@ impl ExecutionStrategy for SequentialStrategy {
         let progress = new_progress(routines.len(), verbose);
 
         for (id, cmd) in routines.iter().enumerate() {
-            let cmd_str = format!("Cargo {}", cmd.to_string());
+            let cmd_str = cmd.to_string();
             progress.task_started(id, &cmd_str);
 
             match cmd.run(verbose) {
