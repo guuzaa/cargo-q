@@ -1,3 +1,4 @@
+use std::convert::From;
 use std::fmt;
 use std::io;
 use std::process::{Command, Output, Stdio};
@@ -37,6 +38,22 @@ impl Routine {
         } else {
             let output = cmd.output()?;
             Ok((output.status.success(), output))
+        }
+    }
+}
+
+impl<T: AsRef<str>> From<T> for Routine {
+    fn from(cmd: T) -> Self {
+        let cmd: &str = cmd.as_ref();
+        let parts: Vec<&str> = cmd.split_whitespace().collect();
+
+        if parts.is_empty() {
+            return Routine::default();
+        }
+
+        Routine {
+            name: parts[0].to_string(),
+            args: parts[1..].iter().map(|s| s.to_string()).collect(),
         }
     }
 }

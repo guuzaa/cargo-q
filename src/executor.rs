@@ -17,21 +17,9 @@ impl Executor {
         }
     }
 
+    #[inline]
     fn parse_commands(commands: &[String]) -> Vec<Routine> {
-        commands
-            .iter()
-            .map(|cmd| {
-                let parts: Vec<&str> = cmd.split_whitespace().collect();
-                if parts.is_empty() {
-                    return Routine::default();
-                }
-
-                Routine {
-                    name: parts[0].to_string(),
-                    args: parts[1..].iter().map(|s| s.to_string()).collect(),
-                }
-            })
-            .collect()
+        commands.iter().map(Routine::from).collect()
     }
 
     pub fn execute(&self) -> io::Result<()> {

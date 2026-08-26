@@ -1,8 +1,8 @@
 //! Progress reporting for a "fancy" console, with progress bar etc.
 
-use super::{print_summary, Progress};
+use super::{print_summary, truncate, Progress};
 use std::collections::VecDeque;
-use std::io::Write;
+use std::io::{self, IsTerminal, Write};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -243,6 +243,12 @@ impl FancyState {
     }
 }
 
+/// Fancy progress is used when both stdin and stdout are terminals.
+#[inline]
+pub fn use_fancy() -> bool {
+    io::stdin().is_terminal() && io::stdout().is_terminal()
+}
+
 /// Format a task's status message to optionally include how long it has been running
 /// and also to fit within a maximum number of terminal columns.
 fn task_message(message: &str, seconds: usize, max_cols: usize) -> String {
@@ -259,17 +265,6 @@ fn task_message(message: &str, seconds: usize, max_cols: usize) -> String {
     }
     out.push_str(&time_note);
     out
-}
-
-fn truncate(s: &str, mut max: usize) -> &str {
-    if s.len() <= max {
-        s
-    } else {
-        while !s.is_char_boundary(max) {
-            max -= 1;
-        }
-        &s[..max]
-    }
 }
 
 /// Render completed/running/pending counts as an ASCII progress bar.
