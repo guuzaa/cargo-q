@@ -1,4 +1,4 @@
-use super::{ExecutionStrategy, MAX_THREADS};
+use super::{num_cpus, ExecutionStrategy};
 use crate::progress::new_progress;
 use crate::routine::Routine;
 use crate::thread_pool::ThreadPool;
@@ -10,7 +10,7 @@ pub struct ParallelStrategy;
 impl ExecutionStrategy for ParallelStrategy {
     fn execute(&self, routines: &[Routine], verbose: bool) -> io::Result<()> {
         let progress = new_progress(routines.len(), verbose);
-        let pool = ThreadPool::new(routines.len().min(MAX_THREADS));
+        let pool = ThreadPool::new(routines.len().min(num_cpus()));
 
         for (id, cmd) in routines.iter().enumerate() {
             let progress = Arc::clone(&progress);

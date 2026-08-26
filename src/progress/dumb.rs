@@ -34,7 +34,7 @@ impl Progress for DumbConsoleProgress {
         let mut state = self.state.lock().unwrap();
         state.started_count += 1;
         println!(
-            "\n    {} {}",
+            "{} {}",
             format!("[{}/{}]", state.started_count, state.total).bold(),
             cmd
         );
