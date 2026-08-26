@@ -1,4 +1,5 @@
 use std::convert::From;
+use std::ffi::OsString;
 use std::fmt;
 use std::io;
 use std::process::{Command, Output, Stdio};
@@ -21,7 +22,7 @@ impl fmt::Display for Routine {
 
 impl Routine {
     pub fn run(&self, verbose: bool) -> io::Result<(bool, Output)> {
-        let mut cmd = Command::new("cargo");
+        let mut cmd = Command::new(cargo_bin());
         cmd.arg(&self.name).args(&self.args);
 
         if verbose {
@@ -40,6 +41,17 @@ impl Routine {
             Ok((output.status.success(), output))
         }
     }
+}
+
+/// Locate the cargo binary.
+///
+/// Cargo sets `CARGO` to the path of the cargo binary running this
+/// subcommand, which both avoids a PATH lookup and guarantees the same
+/// toolchain is used for the spawned commands. Fall back to `cargo` on
+/// PATH when invoked without cargo (e.g. running the binary directly).
+#[inline]
+fn cargo_bin() -> OsString {
+    std::env::var_os("CARGO").unwrap_or_else(|| OsString::from("cargo"))
 }
 
 impl<T: AsRef<str>> From<T> for Routine {

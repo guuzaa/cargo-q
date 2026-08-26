@@ -246,7 +246,7 @@ impl FancyState {
 /// Fancy progress is used when both stdin and stdout are terminals.
 #[inline]
 pub fn use_fancy() -> bool {
-    io::stdin().is_terminal() && io::stdout().is_terminal()
+    io::stdout().is_terminal()
 }
 
 /// Format a task's status message to optionally include how long it has been running
@@ -290,6 +290,7 @@ fn progress_bar(completed: usize, running: usize, total: usize, bar_size: usize)
     bar
 }
 
+#[inline]
 fn get_cols() -> usize {
     ioctl_cols().filter(|&n| n >= 10).unwrap_or(80)
 }

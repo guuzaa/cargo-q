@@ -3,9 +3,9 @@ use crate::strategy::{ExecutionStrategy, ParallelStrategy, SequentialStrategy};
 use std::io;
 
 pub(crate) struct Executor {
-    pub(super) parallel: bool,
-    pub(super) verbose: bool,
-    pub(super) routines: Vec<Routine>,
+    parallel: bool,
+    verbose: bool,
+    routines: Vec<Routine>,
 }
 
 impl Executor {
