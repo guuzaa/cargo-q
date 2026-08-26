@@ -10,7 +10,6 @@ pub struct ThreadPool {
 }
 
 struct Worker {
-    _id: usize,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -20,11 +19,7 @@ impl ThreadPool {
 
         let (sender, receiver) = mpsc::channel();
         let receiver = Arc::new(Mutex::new(receiver));
-        let mut workers = Vec::with_capacity(size);
-
-        for id in 0..size {
-            workers.push(Worker::new(id, Arc::clone(&receiver)));
-        }
+        let workers: Vec<_> = (0..size).map(|_| Worker::new(receiver.clone())).collect();
 
         ThreadPool {
             workers,
@@ -54,7 +49,7 @@ impl Drop for ThreadPool {
 }
 
 impl Worker {
-    fn new(id: usize, receiver: Arc<Mutex<Receiver<Job>>>) -> Worker {
+    fn new(receiver: Arc<Mutex<Receiver<Job>>>) -> Worker {
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv();
 
@@ -69,7 +64,6 @@ impl Worker {
         });
 
         Worker {
-            _id: id,
             thread: Some(thread),
         }
     }
