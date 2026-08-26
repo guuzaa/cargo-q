@@ -20,14 +20,16 @@ impl ExecutionStrategy for ParallelStrategy {
                 progress.task_started(id, &cmd_str);
                 match cmd.run(verbose) {
                     Ok((success, output)) => {
-                        progress.task_finished(id, &cmd_str, success, &output.stderr);
+                        progress.task_finished(
+                            id,
+                            &cmd_str,
+                            success,
+                            &output.stdout,
+                            &output.stderr,
+                        );
                     }
                     Err(e) => {
-                        progress.task_finished(id, &cmd_str, false, &[]);
-                        progress.log(&format!(
-                            "error: {} Failed to execute command: {}",
-                            cmd_str, e
-                        ));
+                        progress.task_finished(id, &cmd_str, false, &[], e.to_string().as_bytes());
                     }
                 }
             });

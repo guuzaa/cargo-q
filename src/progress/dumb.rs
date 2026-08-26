@@ -1,6 +1,6 @@
 //! Progress reporting for a "dumb" console, without any overprinting.
 
-use super::{print_summary, ColorExt, Progress};
+use super::{append_stream, print_summary, ColorExt, Progress};
 use std::sync::Mutex;
 use std::time::Instant;
 
@@ -40,18 +40,19 @@ impl Progress for DumbConsoleProgress {
         );
     }
 
-    fn task_finished(&self, _id: usize, _cmd: &str, success: bool, stderr: &[u8]) {
+    fn task_finished(&self, _id: usize, cmd: &str, success: bool, stdout: &[u8], stderr: &[u8]) {
         let mut state = self.state.lock().unwrap();
         if success {
             state.success_count += 1;
-        } else if !stderr.is_empty() {
-            println!("{}", String::from_utf8_lossy(stderr));
+            return;
         }
-    }
 
-    fn log(&self, msg: &str) {
-        let _state = self.state.lock().unwrap();
-        println!("{}", msg);
+        let head = format!("failed: {}", cmd);
+        let mut buf = Vec::with_capacity(head.len() + stdout.len() + stderr.len());
+        append_stream(&mut buf, head.as_bytes());
+        append_stream(&mut buf, stdout);
+        append_stream(&mut buf, stderr);
+        print!("{}", String::from_utf8_lossy(&buf));
     }
 }
 
@@ -83,21 +84,25 @@ mod tests {
     }
 
     #[test]
-    fn tracks_success_count() {
-        let progress = DumbConsoleProgress::new(3);
+    fn tracks_count() {
+        let progress = DumbConsoleProgress::new(4);
         assert_eq!(progress.success_count(), 0);
-        assert_eq!(progress.total(), 3);
+        assert_eq!(progress.total(), 4);
 
         progress.task_started(0, "check");
-        progress.task_finished(0, "check", true, &[]);
+        progress.task_finished(0, "check", true, &[], &[]);
         assert_eq!(progress.success_count(), 1);
 
         progress.task_started(1, "test");
-        progress.task_finished(1, "test", true, &[]);
+        progress.task_finished(1, "test", true, &[], &[]);
         assert_eq!(progress.success_count(), 2);
 
         progress.task_started(2, "run");
-        progress.task_finished(2, "run", true, &[]);
+        progress.task_finished(2, "run", true, &[], &[]);
+        assert_eq!(progress.success_count(), 3);
+
+        progress.task_started(3, "fmt");
+        progress.task_finished(3, "fmt", false, &[], b"error");
         assert_eq!(progress.success_count(), 3);
     }
 }

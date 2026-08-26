@@ -1,6 +1,6 @@
 //! Progress reporting for a "fancy" console, with progress bar etc.
 
-use super::{print_summary, truncate, Progress};
+use super::{append_stream, print_summary, truncate, Progress};
 use std::collections::VecDeque;
 use std::io::{self, IsTerminal, Write};
 use std::sync::{Arc, Condvar, Mutex};
@@ -93,15 +93,11 @@ impl Progress for FancyConsoleProgress {
         self.state.lock().unwrap().task_started(id, cmd);
     }
 
-    fn task_finished(&self, id: usize, cmd: &str, success: bool, stderr: &[u8]) {
+    fn task_finished(&self, id: usize, cmd: &str, success: bool, stdout: &[u8], stderr: &[u8]) {
         self.state
             .lock()
             .unwrap()
-            .task_finished(id, cmd, success, stderr);
-    }
-
-    fn log(&self, msg: &str) {
-        self.state.lock().unwrap().log(msg);
+            .task_finished(id, cmd, success, stdout, stderr);
     }
 }
 
@@ -160,7 +156,7 @@ impl FancyState {
         self.dirty();
     }
 
-    fn task_finished(&mut self, id: usize, cmd: &str, success: bool, stderr: &[u8]) {
+    fn task_finished(&mut self, id: usize, cmd: &str, success: bool, stdout: &[u8], stderr: &[u8]) {
         self.tasks
             .remove(self.tasks.iter().position(|t| t.id == id).unwrap());
 
@@ -173,18 +169,8 @@ impl FancyState {
         self.failed_count += 1;
         let buf = &mut self.pending;
         writeln!(buf, "failed: {}", cmd).ok();
-        if !stderr.is_empty() {
-            buf.extend_from_slice(stderr);
-            if !stderr.ends_with(b"\n") {
-                buf.push(b'\n');
-            }
-        }
-        self.dirty();
-    }
-
-    fn log(&mut self, msg: &str) {
-        self.pending.extend_from_slice(msg.as_bytes());
-        self.pending.push(b'\n');
+        append_stream(buf, stdout);
+        append_stream(buf, stderr);
         self.dirty();
     }
 

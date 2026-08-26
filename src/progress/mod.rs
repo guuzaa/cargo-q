@@ -21,10 +21,11 @@ pub trait Progress: Send + Sync {
     fn task_started(&self, id: usize, cmd: &str);
 
     /// Called when a command completes.
-    fn task_finished(&self, id: usize, cmd: &str, success: bool, stderr: &[u8]);
-
-    /// Log a line of output without corrupting the progress display.
-    fn log(&self, msg: &str);
+    ///
+    /// On failure, `stdout` and `stderr` are the captured streams from the
+    /// command. Cargo puts test-harness details (which test failed, panics)
+    /// on stdout and its own status on stderr, so both must be shown.
+    fn task_finished(&self, id: usize, cmd: &str, success: bool, stdout: &[u8], stderr: &[u8]);
 }
 
 /// Build a progress reporter for `total` commands.
@@ -37,6 +38,19 @@ pub fn new_progress(total: usize, verbose: bool) -> Arc<dyn Progress> {
         Arc::new(FancyConsoleProgress::new(total))
     } else {
         Arc::new(DumbConsoleProgress::new(total))
+    }
+}
+
+/// Append captured streams to `buf`.
+/// matching how they appear when a command inherits the terminal.
+/// Each non-empty stream is given a trailing newline.
+pub(crate) fn append_stream(buf: &mut Vec<u8>, data: &[u8]) {
+    if data.is_empty() {
+        return;
+    }
+    buf.extend_from_slice(data);
+    if !data.ends_with(b"\n") {
+        buf.push(b'\n');
     }
 }
 
@@ -73,4 +87,38 @@ pub(crate) fn print_summary(success: usize, started: usize, total: usize, start_
     writeln!(handle, "{} {} command(s) in {:.2}s", status, total, elapsed)
         .expect("write stdio failed");
     handle.flush().expect("flush stdio failed")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::append_stream;
+
+    #[test]
+    fn captured_output_stdout_then_stderr() {
+        let mut buf = Vec::new();
+        append_stream(&mut buf, b"test foo ... FAILED\n");
+        append_stream(&mut buf, b"error: test failed\n");
+        assert_eq!(buf, b"test foo ... FAILED\nerror: test failed\n");
+    }
+
+    #[test]
+    fn captured_output_adds_missing_newlines() {
+        let mut buf = Vec::new();
+        append_stream(&mut buf, b"out");
+        append_stream(&mut buf, b"err");
+        assert_eq!(buf, b"out\nerr\n");
+    }
+
+    #[test]
+    fn captured_output_skips_empty_streams() {
+        let mut buf = Vec::new();
+        append_stream(&mut buf, b"");
+        append_stream(&mut buf, b"err\n");
+        assert_eq!(buf, b"err\n");
+
+        buf.clear();
+        append_stream(&mut buf, b"out\n");
+        append_stream(&mut buf, b"");
+        assert_eq!(buf, b"out\n");
+    }
 }
