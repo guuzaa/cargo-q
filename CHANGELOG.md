@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.2] - 2026-08-26
+
+### Fixed
+- Failed commands now print captured stdout as well as stderr, so `cargo test` panics and assertion details are no longer missing
+- Dumb console prefixes failure output with `failed: <command>`
+- Spawned commands now use the `CARGO` environment variable (falling back to `cargo` on PATH) so the same toolchain is used
+
+### Changed
+- Fancy progress is enabled when stdout is a terminal; stdin no longer needs to be a TTY
+- Parallel execution caps the thread pool at the available CPU count instead of a hard limit of 8
+
 ## [0.2.1] - 2026-08-25
 
 ### Added
