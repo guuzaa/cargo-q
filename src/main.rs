@@ -6,12 +6,9 @@ mod strategy;
 mod thread_pool;
 
 use cli::Cli;
-use executor::Executor;
 
 fn main() {
-    let cli = Cli::parse();
-    let executor = Executor::new(&cli.commands, cli.parallel, cli.verbose);
-    if let Err(e) = executor.execute() {
+    if let Err(e) = Cli::parse().run() {
         eprintln!("{}", e);
         std::process::exit(1);
     }

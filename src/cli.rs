@@ -1,4 +1,7 @@
+use crate::executor::Executor;
+use crate::routine::Routine;
 use clap::Parser;
+use std::io;
 
 #[derive(Parser, Debug)]
 #[command(name = "cargo-q")]
@@ -18,7 +21,7 @@ pub struct Cli {
     ///
     ///   e.g., "test --features f1" "run --release"
     #[arg(required = true, allow_hyphen_values = true)]
-    pub commands: Vec<String>,
+    pub commands: Vec<Routine>,
 
     /// Run commands in verbose mode
     ///
@@ -41,5 +44,9 @@ impl Cli {
             .collect::<Vec<_>>();
 
         Self::parse_from(args)
+    }
+
+    pub fn run(self) -> io::Result<()> {
+        Executor::new(self.commands, self.parallel, self.verbose).execute()
     }
 }
