@@ -1,10 +1,5 @@
 //! Spawn cargo subcommands with n2-style streaming output.
 //!
-//! n2 avoids `std::process::Command` because its build graph stores raw shell
-//! command lines and it needs `posix_spawn` / `CreateProcess` to merge
-//! stdout+stderr and avoid fd leaks at `-j250`. cargo-q's commands are already
-//! argv (`cargo <subcommand> [args]`), so `Command` is the right spawn API.
-//!
 //! What we do borrow from n2:
 //! - stdout and stderr share one pipe, so the callback sees them in time order
 //! - bytes are delivered to `output_cb` as they arrive, not after exit
@@ -85,49 +80,43 @@ pub fn run_command(
     cmd.args(args);
     configure_process_group(&mut cmd);
 
-    if !verbose && io::stdout().is_terminal() && std::env::var_os("CARGO_TERM_COLOR").is_none() {
-        cmd.env("CARGO_TERM_COLOR", "always");
-    }
-
-    if verbose {
+    let mut pipe_reader = if verbose {
         cmd.stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
-        let mut child = cmd.spawn()?;
-        let pid = child.id();
-        let _guard = register_pid(pid);
-        if was_interrupted() {
-            kill_process_group(pid, false);
+        None
+    } else {
+        let (reader, writer) = os_pipe::pipe()?;
+        if io::stdout().is_terminal() && std::env::var_os("CARGO_TERM_COLOR").is_none() {
+            cmd.env("CARGO_TERM_COLOR", "always");
         }
-        let status = child.wait()?;
-        return Ok(termination_from_status(status));
-    }
-
-    let (mut reader, writer) = os_pipe::pipe()?;
-    cmd.stdin(Stdio::null())
-        .stdout(writer.try_clone()?)
-        .stderr(writer);
+        cmd.stdin(Stdio::null())
+            .stdout(writer.try_clone()?)
+            .stderr(writer);
+        Some(reader)
+    };
 
     let mut child = cmd.spawn()?;
-    // Command::spawn takes &mut self, so `cmd` still owns the pipe writers.
-    // Drop them here; otherwise reader.read() never sees EOF.
-    drop(cmd);
+    drop(cmd); // release the writer halves held by `cmd`, or reader.read() never sees EOF
+
     let pid = child.id();
     let _guard = register_pid(pid);
     if was_interrupted() {
         kill_process_group(pid, false);
     }
 
-    let mut buf = [0u8; 4096];
-    loop {
-        match reader.read(&mut buf) {
-            Ok(0) => break,
-            Ok(n) => output_cb(&buf[..n]),
-            Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-            Err(e) => {
-                kill_process_group(pid, false);
-                let _ = child.wait();
-                return Err(e);
+    if let Some(reader) = pipe_reader.as_mut() {
+        let mut buf = [0u8; 4096];
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => output_cb(&buf[..n]),
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => {
+                    kill_process_group(pid, false);
+                    let _ = child.wait();
+                    return Err(e);
+                }
             }
         }
     }

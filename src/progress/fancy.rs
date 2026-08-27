@@ -372,8 +372,7 @@ fn progress_bar(completed: usize, running: usize, total: usize, bar_size: usize)
         sum += count;
         let mut target_size = sum * bar_size / total;
         if count > 0 && target_size == bar.len() && target_size < bar_size {
-            // Special case: for non-zero count, ensure we always get at least
-            // one tick.
+            // Special case: for non-zero count, ensure we always get at least one tick.
             target_size += 1;
         }
         while bar.len() < target_size {

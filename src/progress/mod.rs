@@ -33,7 +33,7 @@ pub trait Progress: Send + Sync {
 /// commands do not inherit stdio (`verbose` is false); otherwise cargo
 /// output would collide with the status display.
 pub fn new_progress(total: usize, verbose: bool) -> Arc<dyn Progress> {
-    if use_fancy() && !verbose {
+    if use_fancy() {
         Arc::new(FancyConsoleProgress::new(total, verbose))
     } else {
         Arc::new(DumbConsoleProgress::new(total, verbose))
