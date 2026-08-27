@@ -5,7 +5,7 @@
 //! - bytes are delivered to `output_cb` as they arrive, not after exit
 //! - each child runs in its own process group so Ctrl-C can kill cargo *and*
 //!   the rustc/link grandchildren it started
-//! 
+//!
 //! https://github.com/evmar/n2
 
 use std::ffi::OsStr;
