@@ -2,17 +2,19 @@
 
 A Cargo subcommand for running multiple Cargo commands sequentially or in parallel.
 
+[![usage](https://asciinema.org/a/YlyT7mmdtzxXI6BS.svg)](https://asciinema.org/a/YlyT7mmdtzxXI6BS)
+
 ## Installation
 
 ```bash
-cargo install cargo-q
+cargo install cargo-q --locked
 ```
 
 ## Features
 
 - Run multiple Cargo commands sequentially
 - Commands are separated by spaces
-- Support parallel execution for commands
+- Support parallel execution for commands (experimental)
 - Verbose mode for detailed output
 
 ## Usage
@@ -38,7 +40,10 @@ cargo q "test --no-run"   # Run test with --no-run flag
 cargo q "test --features feature1"  # Use quotes for complex arguments
 ```
 
-### Parallel Execution
+### Parallel Execution (Experimental)
+
+> [!WARNING]
+> **Note:** Parallel execution is currently experimental and may not provide a performance improvement. Commands like `cargo check`, `cargo build`, and `cargo test` share the same target directory and lock it, so they will block each other while waiting for the lock. As a result, running these commands in parallel is not faster than running them sequentially.
 
 ```bash
 # Run commands in parallel

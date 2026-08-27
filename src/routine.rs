@@ -1,7 +1,7 @@
+use crate::process::{self, Termination};
 use std::ffi::OsString;
 use std::fmt;
 use std::io;
-use std::process::{Command, Output, Stdio};
 use std::str::FromStr;
 
 #[derive(Debug, Default, Clone)]
@@ -21,25 +21,11 @@ impl fmt::Display for Routine {
 }
 
 impl Routine {
-    pub fn run(&self, verbose: bool) -> io::Result<(bool, Output)> {
-        let mut cmd = Command::new(cargo_bin());
-        cmd.arg(&self.name).args(&self.args);
-
-        if verbose {
-            cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-            let status = cmd.status()?;
-            Ok((
-                status.success(),
-                Output {
-                    status,
-                    stdout: Vec::new(),
-                    stderr: Vec::new(),
-                },
-            ))
-        } else {
-            let output = cmd.output()?;
-            Ok((output.status.success(), output))
-        }
+    pub fn run(&self, verbose: bool, output_cb: impl FnMut(&[u8])) -> io::Result<Termination> {
+        let mut args = Vec::with_capacity(1 + self.args.len());
+        args.push(self.name.as_str());
+        args.extend(self.args.iter().map(String::as_str));
+        process::run_command(cargo_bin(), args, verbose, output_cb)
     }
 }
 

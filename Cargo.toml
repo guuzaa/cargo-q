@@ -8,12 +8,18 @@ keywords = ["cargo", "subcommand", "plugin"]
 categories = ["command-line-utilities", "development-tools::cargo-plugins"]
 license = "Apache-2.0"
 readme = "README.md"
+authors = ["Jowell Young <guza@duck.com>"]
 repository = "https://github.com/guuzaa/cargo-q"
-exclude = [".github", ".vscode", ".gitignore"]
+exclude = [".github", ".vscode", ".gitignore", "CHANGELOG.md"]
 documentation = "https://docs.rs/cargo-q"
 
 [dependencies]
 clap = { version = "4.5.26", features = ["derive"] }
+ctrlc = "3.4"
+os_pipe = "1.2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [profile.release]
 opt-level = 2

@@ -18,6 +18,8 @@ impl Executor {
     }
 
     pub fn execute(&self) -> io::Result<()> {
+        crate::process::install_interrupt_handler();
+
         let strategy: Box<dyn ExecutionStrategy> = match self.parallel {
             true => Box::new(ParallelStrategy),
             false => Box::new(SequentialStrategy),
