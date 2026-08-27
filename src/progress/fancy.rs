@@ -1,6 +1,6 @@
 //! Progress reporting for a "fancy" console, with progress bar etc.
 
-use super::{append_stream, print_summary, truncate, Progress};
+use super::{append_stream, print_summary, truncate, ColorExt, Progress};
 use std::collections::VecDeque;
 use std::io::{self, IsTerminal, Write};
 use std::sync::{Arc, Condvar, Mutex};
@@ -35,18 +35,21 @@ const UPDATE_DELAY: Duration = Duration::from_millis(50);
 const TIMEOUT_DELAY: Duration = Duration::from_millis(500);
 
 impl FancyConsoleProgress {
-    pub fn new(total: usize) -> Self {
+    pub fn new(total: usize, verbose: bool) -> Self {
         let dirty_cond = Arc::new(Condvar::new());
         let state = Arc::new(Mutex::new(FancyState {
             done: false,
             pending: Vec::new(),
             dirty: false,
             dirty_cond: dirty_cond.clone(),
+            verbose,
             total,
             done_count: 0,
             failed_count: 0,
             started_count: 0,
             tasks: VecDeque::new(),
+            outputs: vec![Vec::new(); total],
+            partials: vec![Vec::new(); total],
             start_time: Instant::now(),
         }));
 
@@ -93,11 +96,12 @@ impl Progress for FancyConsoleProgress {
         self.state.lock().unwrap().task_started(id, cmd);
     }
 
-    fn task_finished(&self, id: usize, cmd: &str, success: bool, stdout: &[u8], stderr: &[u8]) {
-        self.state
-            .lock()
-            .unwrap()
-            .task_finished(id, cmd, success, stdout, stderr);
+    fn task_output(&self, id: usize, data: &[u8]) {
+        self.state.lock().unwrap().task_output(id, data);
+    }
+
+    fn task_finished(&self, id: usize, cmd: &str, success: bool) {
+        self.state.lock().unwrap().task_finished(id, cmd, success);
     }
 }
 
@@ -130,6 +134,9 @@ struct FancyState {
     dirty: bool,
     dirty_cond: Arc<Condvar>,
 
+    /// When set, `task_output` is printed live; otherwise it is buffered
+    /// and only dumped if the command fails.
+    verbose: bool,
     total: usize,
     done_count: usize,
     failed_count: usize,
@@ -137,6 +144,11 @@ struct FancyState {
     /// Commands that are currently executing.
     /// Pushed to as tasks are started, so it's always in order of age.
     tasks: VecDeque<Task>,
+    /// Captured merged output per command. Used when not verbose.
+    outputs: Vec<Vec<u8>>,
+    /// Incomplete line leftover from the last `task_output` chunk, per command.
+    /// Used when prefixing parallel output so a split line is not prefixed twice.
+    partials: Vec<Vec<u8>>,
     start_time: Instant,
 }
 
@@ -156,22 +168,92 @@ impl FancyState {
         self.dirty();
     }
 
-    fn task_finished(&mut self, id: usize, cmd: &str, success: bool, stdout: &[u8], stderr: &[u8]) {
-        self.tasks
-            .remove(self.tasks.iter().position(|t| t.id == id).unwrap());
+    fn task_output(&mut self, id: usize, data: &[u8]) {
+        if data.is_empty() {
+            return;
+        }
+        if !self.verbose {
+            if let Some(buf) = self.outputs.get_mut(id) {
+                buf.extend_from_slice(data);
+            }
+            return;
+        }
+        if self.total > 1 {
+            self.push_prefixed(id, data);
+        } else {
+            self.pending.extend_from_slice(data);
+        }
+        self.dirty();
+    }
+
+    fn task_finished(&mut self, id: usize, cmd: &str, success: bool) {
+        if self.verbose {
+            self.flush_partial(id, cmd);
+        }
+        if let Some(pos) = self.tasks.iter().position(|t| t.id == id) {
+            self.tasks.remove(pos);
+        }
 
         if success {
             self.done_count += 1;
+            if let Some(buf) = self.outputs.get_mut(id) {
+                buf.clear();
+            }
             self.dirty();
             return;
         }
 
         self.failed_count += 1;
-        let buf = &mut self.pending;
-        writeln!(buf, "failed: {}", cmd).ok();
-        append_stream(buf, stdout);
-        append_stream(buf, stderr);
+        writeln!(&mut self.pending, "failed: {}", cmd).ok();
+        if !self.verbose {
+            let output = self
+                .outputs
+                .get_mut(id)
+                .map(std::mem::take)
+                .unwrap_or_default();
+            append_stream(&mut self.pending, &output);
+        }
         self.dirty();
+    }
+
+    fn push_prefixed(&mut self, id: usize, data: &[u8]) {
+        let prefix = self
+            .tasks
+            .iter()
+            .find(|t| t.id == id)
+            .map(|t| t.message.clone())
+            .unwrap_or_default();
+
+        let Some(partial) = self.partials.get_mut(id) else {
+            return;
+        };
+        partial.extend_from_slice(data);
+        let mut leftover = std::mem::take(partial);
+        let mut start = 0;
+        for i in 0..leftover.len() {
+            if leftover[i] == b'\n' {
+                write_prefixed_line(&mut self.pending, &prefix, &leftover[start..=i]);
+                start = i + 1;
+            }
+        }
+        leftover.drain(..start);
+        self.partials[id] = leftover;
+    }
+
+    fn flush_partial(&mut self, id: usize, cmd: &str) {
+        let leftover = self
+            .partials
+            .get_mut(id)
+            .map(std::mem::take)
+            .unwrap_or_default();
+        if leftover.is_empty() {
+            return;
+        }
+        if self.total > 1 {
+            write_prefixed_line(&mut self.pending, cmd, &leftover);
+        } else {
+            self.pending.extend_from_slice(&leftover);
+        }
     }
 
     fn cleanup(&mut self) {
@@ -184,6 +266,9 @@ impl FancyState {
         let completed = self.done_count + failed;
         let running = self.tasks.len();
         let buf = &mut self.pending;
+        if !at_column_zero(buf) {
+            buf.push(b'\n');
+        }
         write!(
             buf,
             "[{}] {}/{} done, ",
@@ -229,10 +314,32 @@ impl FancyState {
     }
 }
 
-/// Fancy progress is used when both stdin and stdout are terminals.
+/// Fancy progress is used when stdout is a terminal.
 #[inline]
 pub fn use_fancy() -> bool {
     io::stdout().is_terminal()
+}
+
+/// True when the next write to `buf` starts at column 0.
+///
+/// After the clear sequence (`\r\x1b[J`) the cursor is already at column 0,
+/// so the progress bar can be drawn immediately. A live output chunk that
+/// does not end in a newline would otherwise share a line with the bar.
+fn at_column_zero(buf: &[u8]) -> bool {
+    buf.is_empty() || buf.ends_with(b"\n") || buf == b"\r\x1b[J"
+}
+
+/// Write one output line with a command prefix so parallel streams stay readable.
+fn write_prefixed_line(buf: &mut Vec<u8>, prefix: &str, line: &[u8]) {
+    write!(buf, "{}: ", truncate(prefix, 32).bold()).ok();
+    for &b in line {
+        if b != b'\r' {
+            buf.push(b);
+        }
+    }
+    if !line.ends_with(b"\n") {
+        buf.push(b'\n');
+    }
 }
 
 /// Format a task's status message to optionally include how long it has been running
@@ -390,5 +497,24 @@ mod tests {
             // test passes if this doesn't panic
             truncate(text, len);
         }
+    }
+
+    #[test]
+    fn column_zero_after_clear_or_newline() {
+        assert!(at_column_zero(b""));
+        assert!(at_column_zero(b"\r\x1b[J"));
+        assert!(at_column_zero(b"hello\n"));
+        assert!(!at_column_zero(b"\r\x1b[Jhello"));
+    }
+
+    #[test]
+    fn prefixed_line_strips_carriage_return() {
+        let mut buf = Vec::new();
+        write_prefixed_line(&mut buf, "cargo test", b"foo\r\n");
+        let text = String::from_utf8_lossy(&buf);
+        assert!(text.contains("cargo test"));
+        assert!(text.contains("foo"));
+        assert!(text.ends_with('\n'));
+        assert!(!text.contains('\r'));
     }
 }

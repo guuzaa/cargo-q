@@ -14,6 +14,11 @@ documentation = "https://docs.rs/cargo-q"
 
 [dependencies]
 clap = { version = "4.5.26", features = ["derive"] }
+ctrlc = "3.4"
+os_pipe = "1.2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [profile.release]
 opt-level = 2

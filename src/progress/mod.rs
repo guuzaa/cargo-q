@@ -20,12 +20,11 @@ pub trait Progress: Send + Sync {
     /// Called when a command starts.
     fn task_started(&self, id: usize, cmd: &str);
 
+    /// Called with a chunk of merged stdout+stderr as the command produces it.
+    fn task_output(&self, id: usize, data: &[u8]);
+
     /// Called when a command completes.
-    ///
-    /// On failure, `stdout` and `stderr` are the captured streams from the
-    /// command. Cargo puts test-harness details (which test failed, panics)
-    /// on stdout and its own status on stderr, so both must be shown.
-    fn task_finished(&self, id: usize, cmd: &str, success: bool, stdout: &[u8], stderr: &[u8]);
+    fn task_finished(&self, id: usize, cmd: &str, success: bool);
 }
 
 /// Build a progress reporter for `total` commands.
@@ -35,9 +34,9 @@ pub trait Progress: Send + Sync {
 /// output would collide with the status display.
 pub fn new_progress(total: usize, verbose: bool) -> Arc<dyn Progress> {
     if use_fancy() && !verbose {
-        Arc::new(FancyConsoleProgress::new(total))
+        Arc::new(FancyConsoleProgress::new(total, verbose))
     } else {
-        Arc::new(DumbConsoleProgress::new(total))
+        Arc::new(DumbConsoleProgress::new(total, verbose))
     }
 }
 
@@ -66,7 +65,9 @@ pub(crate) fn truncate(s: &str, mut max: usize) -> &str {
 
 pub(crate) fn print_summary(success: usize, started: usize, total: usize, start_time: Instant) {
     let elapsed = start_time.elapsed().as_secs_f32();
-    let status = if success == total {
+    let status = if crate::process::was_interrupted() {
+        "Interrupted".yellow()
+    } else if success == total {
         "Finished".green()
     } else {
         "Failed".red()

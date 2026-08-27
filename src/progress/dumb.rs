@@ -1,6 +1,7 @@
 //! Progress reporting for a "dumb" console, without any overprinting.
 
 use super::{append_stream, print_summary, ColorExt, Progress};
+use std::io::Write;
 use std::sync::Mutex;
 use std::time::Instant;
 
@@ -10,20 +11,25 @@ pub struct DumbConsoleProgress {
 }
 
 struct DumbState {
+    verbose: bool,
     total: usize,
     success_count: usize,
     started_count: usize,
     start_time: Instant,
+    /// Captured merged output per command. Used when not verbose.
+    outputs: Vec<Vec<u8>>,
 }
 
 impl DumbConsoleProgress {
-    pub fn new(total: usize) -> Self {
+    pub fn new(total: usize, verbose: bool) -> Self {
         Self {
             state: Mutex::new(DumbState {
+                verbose,
                 total,
                 success_count: 0,
                 started_count: 0,
                 start_time: Instant::now(),
+                outputs: vec![Vec::new(); total],
             }),
         }
     }
@@ -40,18 +46,46 @@ impl Progress for DumbConsoleProgress {
         );
     }
 
-    fn task_finished(&self, _id: usize, cmd: &str, success: bool, stdout: &[u8], stderr: &[u8]) {
+    fn task_output(&self, id: usize, data: &[u8]) {
+        if data.is_empty() {
+            return;
+        }
+        let mut state = self.state.lock().unwrap();
+        if state.verbose {
+            let mut out = std::io::stdout();
+            let _ = out.write_all(data);
+            let _ = out.flush();
+            return;
+        }
+        if let Some(buf) = state.outputs.get_mut(id) {
+            buf.extend_from_slice(data);
+        }
+    }
+
+    fn task_finished(&self, id: usize, cmd: &str, success: bool) {
         let mut state = self.state.lock().unwrap();
         if success {
             state.success_count += 1;
+            if let Some(buf) = state.outputs.get_mut(id) {
+                buf.clear();
+            }
+            return;
+        }
+
+        let output = state
+            .outputs
+            .get_mut(id)
+            .map(std::mem::take)
+            .unwrap_or_default();
+        if state.verbose {
+            println!("failed: {}", cmd);
             return;
         }
 
         let head = format!("failed: {}", cmd);
-        let mut buf = Vec::with_capacity(head.len() + stdout.len() + stderr.len());
+        let mut buf = Vec::with_capacity(head.len() + output.len());
         append_stream(&mut buf, head.as_bytes());
-        append_stream(&mut buf, stdout);
-        append_stream(&mut buf, stderr);
+        append_stream(&mut buf, &output);
         print!("{}", String::from_utf8_lossy(&buf));
     }
 }
@@ -85,24 +119,25 @@ mod tests {
 
     #[test]
     fn tracks_count() {
-        let progress = DumbConsoleProgress::new(4);
+        let progress = DumbConsoleProgress::new(4, false);
         assert_eq!(progress.success_count(), 0);
         assert_eq!(progress.total(), 4);
 
         progress.task_started(0, "check");
-        progress.task_finished(0, "check", true, &[], &[]);
+        progress.task_finished(0, "check", true);
         assert_eq!(progress.success_count(), 1);
 
         progress.task_started(1, "test");
-        progress.task_finished(1, "test", true, &[], &[]);
+        progress.task_finished(1, "test", true);
         assert_eq!(progress.success_count(), 2);
 
         progress.task_started(2, "run");
-        progress.task_finished(2, "run", true, &[], &[]);
+        progress.task_finished(2, "run", true);
         assert_eq!(progress.success_count(), 3);
 
         progress.task_started(3, "fmt");
-        progress.task_finished(3, "fmt", false, &[], b"error");
+        progress.task_output(3, b"error");
+        progress.task_finished(3, "fmt", false);
         assert_eq!(progress.success_count(), 3);
     }
 }

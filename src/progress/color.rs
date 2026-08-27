@@ -4,6 +4,7 @@ use std::io::{self, IsTerminal};
 pub trait ColorExt {
     fn red(self) -> ColoredString;
     fn green(self) -> ColoredString;
+    fn yellow(self) -> ColoredString;
     fn bold(self) -> ColoredString;
 }
 
@@ -31,6 +32,13 @@ impl<T: fmt::Display> ColorExt for T {
     fn green(self) -> ColoredString {
         if color_enabled() {
             ColoredString(format!("\x1b[32m{}\x1b[0m", self))
+        } else {
+            ColoredString(self.to_string())
+        }
+    }
+    fn yellow(self) -> ColoredString {
+        if color_enabled() {
+            ColoredString(format!("\x1b[33m{}\x1b[0m", self))
         } else {
             ColoredString(self.to_string())
         }
