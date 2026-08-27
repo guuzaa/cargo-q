@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3] - 2026-08-27
+
+### Added
+- Fancy progress bar supports verbose mode
+
+### Fixed
+- Redirect stdio and stderr when in non-verbose mode
+
 ## [0.2.2] - 2026-08-26
 
 ### Fixed

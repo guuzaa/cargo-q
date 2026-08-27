@@ -69,7 +69,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-q"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "clap",
  "ctrlc",
