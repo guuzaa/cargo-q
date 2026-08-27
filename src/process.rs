@@ -5,6 +5,8 @@
 //! - bytes are delivered to `output_cb` as they arrive, not after exit
 //! - each child runs in its own process group so Ctrl-C can kill cargo *and*
 //!   the rustc/link grandchildren it started
+//! 
+//! https://github.com/evmar/n2
 
 use std::ffi::OsStr;
 use std::io::{self, IsTerminal, Read};
@@ -23,6 +25,7 @@ static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 static PIDS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
 static HANDLER: Once = Once::new();
 
+#[inline]
 pub fn was_interrupted() -> bool {
     INTERRUPTED.load(Ordering::SeqCst)
 }
