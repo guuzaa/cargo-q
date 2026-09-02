@@ -389,56 +389,11 @@ fn get_cols() -> usize {
 
 #[cfg(unix)]
 fn ioctl_cols() -> Option<usize> {
-    use std::os::raw::{c_int, c_ulong};
-    use std::os::unix::io::AsRawFd;
+    use std::os::fd::AsRawFd;
 
-    #[repr(C)]
-    struct Winsize {
-        ws_row: u16,
-        ws_col: u16,
-        ws_xpixel: u16,
-        ws_ypixel: u16,
-    }
-
-    #[cfg(any(
-        target_os = "macos",
-        target_os = "ios",
-        target_os = "freebsd",
-        target_os = "dragonfly",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    ))]
-    const TIOCGWINSZ: c_ulong = 0x4008_7468;
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    const TIOCGWINSZ: c_ulong = 0x5413;
-    #[cfg(not(any(
-        target_os = "macos",
-        target_os = "ios",
-        target_os = "freebsd",
-        target_os = "dragonfly",
-        target_os = "openbsd",
-        target_os = "netbsd",
-        target_os = "linux",
-        target_os = "android"
-    )))]
-    const TIOCGWINSZ: c_ulong = 0;
-
-    if TIOCGWINSZ == 0 {
-        return None;
-    }
-
-    extern "C" {
-        fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
-    }
-
-    let mut ws = Winsize {
-        ws_row: 0,
-        ws_col: 0,
-        ws_xpixel: 0,
-        ws_ypixel: 0,
-    };
     let fd = std::io::stdout().as_raw_fd();
-    let ret = unsafe { ioctl(fd, TIOCGWINSZ, &mut ws) };
+    let mut ws: libc::winsize = unsafe { std::mem::zeroed() };
+    let ret = unsafe { libc::ioctl(fd, libc::TIOCGWINSZ, &mut ws) };
     if ret < 0 || ws.ws_col == 0 {
         None
     } else {

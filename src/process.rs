@@ -14,6 +14,15 @@ use std::process::{Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, Once};
 
+#[cfg(windows)]
+use windows_sys::Win32::Foundation::CloseHandle;
+#[cfg(windows)]
+use windows_sys::Win32::System::Console::{GenerateConsoleCtrlEvent, CTRL_BREAK_EVENT};
+#[cfg(windows)]
+use windows_sys::Win32::System::Threading::{
+    OpenProcess, TerminateProcess, CREATE_NEW_PROCESS_GROUP, PROCESS_TERMINATE,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Termination {
     Success,
@@ -195,26 +204,6 @@ fn signaled_interrupt(status: ExitStatus) -> bool {
 #[cfg(not(unix))]
 fn signaled_interrupt(_status: ExitStatus) -> bool {
     false
-}
-
-#[cfg(windows)]
-const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-#[cfg(windows)]
-const CTRL_BREAK_EVENT: u32 = 1;
-#[cfg(windows)]
-const PROCESS_TERMINATE: u32 = 0x0001;
-
-#[cfg(windows)]
-#[link(name = "kernel32")]
-extern "system" {
-    fn GenerateConsoleCtrlEvent(event: u32, process_group_id: u32) -> i32;
-    fn OpenProcess(
-        desired_access: u32,
-        inherit_handle: i32,
-        process_id: u32,
-    ) -> *mut std::ffi::c_void;
-    fn TerminateProcess(handle: *mut std::ffi::c_void, exit_code: u32) -> i32;
-    fn CloseHandle(handle: *mut std::ffi::c_void) -> i32;
 }
 
 #[cfg(test)]

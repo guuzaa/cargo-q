@@ -75,6 +75,7 @@ dependencies = [
  "ctrlc",
  "libc",
  "os_pipe",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
