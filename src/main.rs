@@ -1,12 +1,4 @@
-mod cli;
-mod executor;
-mod process;
-mod progress;
-mod routine;
-mod strategy;
-mod thread_pool;
-
-use cli::Cli;
+use cargo_q::cli::Cli;
 use std::io::ErrorKind;
 
 fn main() {

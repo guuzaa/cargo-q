@@ -6,6 +6,7 @@ use std::str::FromStr;
 
 #[derive(Debug, Default, Clone)]
 pub struct Routine {
+    bin: OsString,
     name: String,
     args: Vec<String>,
 }
@@ -21,23 +22,15 @@ impl fmt::Display for Routine {
 }
 
 impl Routine {
+    /// Run this routine. The executable was resolved once, when the
+    /// routine was parsed, so execution strategies never need to know
+    /// anything about which binary is being invoked.
     pub fn run(&self, verbose: bool, output_cb: impl FnMut(&[u8])) -> io::Result<Termination> {
         let mut args = Vec::with_capacity(1 + self.args.len());
         args.push(self.name.as_str());
         args.extend(self.args.iter().map(String::as_str));
-        process::run_command(cargo_bin(), args, verbose, output_cb)
+        process::run_command(&self.bin, args, verbose, output_cb)
     }
-}
-
-/// Locate the cargo binary.
-///
-/// Cargo sets `CARGO` to the path of the cargo binary running this
-/// subcommand, which both avoids a PATH lookup and guarantees the same
-/// toolchain is used for the spawned commands. Fall back to `cargo` on
-/// PATH when invoked without cargo (e.g. running the binary directly).
-#[inline]
-fn cargo_bin() -> OsString {
-    std::env::var_os("CARGO").unwrap_or_else(|| OsString::from("cargo"))
 }
 
 impl FromStr for Routine {
@@ -51,6 +44,7 @@ impl FromStr for Routine {
         }
 
         Ok(Routine {
+            bin: process::cargo_bin(),
             name: parts[0].to_string(),
             args: parts[1..].iter().map(|s| s.to_string()).collect(),
         })

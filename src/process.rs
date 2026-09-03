@@ -8,7 +8,7 @@
 //!
 //! https://github.com/evmar/n2
 
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::io::{self, IsTerminal, Read};
 use std::process::{Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -37,6 +37,17 @@ static HANDLER: Once = Once::new();
 #[inline]
 pub fn was_interrupted() -> bool {
     INTERRUPTED.load(Ordering::SeqCst)
+}
+
+/// Locate the cargo binary.
+///
+/// Cargo sets `CARGO` to the path of the cargo binary running this
+/// subcommand, which both avoids a PATH lookup and guarantees the same
+/// toolchain is used for the spawned commands. Fall back to `cargo` on
+/// PATH when invoked without cargo (e.g. running the binary directly).
+#[inline]
+pub fn cargo_bin() -> OsString {
+    std::env::var_os("CARGO").unwrap_or_else(|| OsString::from("cargo"))
 }
 
 /// Catch SIGINT/SIGTERM (and Windows Ctrl-C) and kill registered process groups.
