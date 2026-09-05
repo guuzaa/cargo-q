@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0] - 2026-09-05
+### Added
+- Tokens starting with `-` are now treated as arguments to the preceding command, so flags can be passed without quoting (e.g. `cargo q build -r test --no-run`)
+
+### Changed
+- `Routine` is now cargo-agnostic: it takes the cargo path explicitly instead of hardcoding `cargo`
+- Replaced hand-written `extern` declarations with the `windows-sys` and `libc` crates for FFI
+
 ## [0.2.3] - 2026-08-27
 
 ### Added
