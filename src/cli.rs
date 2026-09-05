@@ -13,15 +13,17 @@ use std::io;
 pub struct Cli {
     /// Commands to execute
     ///
-    /// Commands are separated by spaces:
+    /// A token that does not start with `-` starts a new command; following
+    /// tokens that start with `-` are its arguments:
     ///
-    ///   e.g., check test run
+    ///   e.g., check test
+    ///   e.g., build -r test --no-run
     ///
-    /// Note: For commands with arguments, you need to quote the entire command:
+    /// Quote a command when an argument does not start with `-`:
     ///
-    ///   e.g., "test --features f1" "run --release"
-    #[arg(required = true, allow_hyphen_values = true)]
-    pub commands: Vec<Routine>,
+    ///   e.g., "test --features f1"
+    #[arg(required = true, allow_hyphen_values = true, trailing_var_arg = true)]
+    commands: Vec<String>,
 
     /// Run commands in verbose mode
     ///
@@ -47,6 +49,34 @@ impl Cli {
     }
 
     pub fn run(self) -> io::Result<()> {
-        Executor::new(self.commands, self.parallel, self.verbose).execute()
+        let routines = Routine::parse(&self.commands)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+        Executor::new(routines, self.parallel, self.verbose).execute()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hyphen_values_are_captured() {
+        let cli = Cli::parse_from(["cargo-q", "build", "-r", "test", "--no-run"]);
+        assert_eq!(cli.commands, ["build", "-r", "test", "--no-run"]);
+        assert!(!cli.parallel);
+        assert!(!cli.verbose);
+
+        let routines = Routine::parse(&cli.commands).unwrap();
+        assert_eq!(routines.len(), 2);
+        assert_eq!(routines[0].to_string(), "cargo build -r");
+        assert_eq!(routines[1].to_string(), "cargo test --no-run");
+    }
+
+    #[test]
+    fn flags_before_commands_still_work() {
+        let cli = Cli::parse_from(["cargo-q", "-p", "-v", "build", "-r"]);
+        assert!(cli.parallel);
+        assert!(cli.verbose);
+        assert_eq!(cli.commands, ["build", "-r"]);
     }
 }

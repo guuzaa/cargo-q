@@ -34,10 +34,16 @@ cargo q check test      # Runs check, then test
 
 ### Commands with Arguments
 
+Tokens that start with `-` are treated as arguments to the preceding command:
+
 ```bash
-# For commands with arguments
-cargo q "test --no-run"   # Run test with --no-run flag
-cargo q "test --features feature1"  # Use quotes for complex arguments
+cargo q build -r test --no-run
+```
+
+Quote a command when an argument does not start with `-`:
+
+```bash
+cargo q "test --features feature1"
 ```
 
 ### Parallel Execution (Experimental)
