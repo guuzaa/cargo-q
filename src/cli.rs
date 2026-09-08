@@ -1,6 +1,7 @@
 use crate::executor::Executor;
 use crate::routine::Routine;
 use clap::Parser;
+use std::ffi::OsString;
 use std::io;
 
 #[derive(Parser, Debug)]
@@ -23,7 +24,7 @@ pub struct Cli {
     ///
     ///   e.g., "test --features f1"
     #[arg(required = true, allow_hyphen_values = true, trailing_var_arg = true)]
-    commands: Vec<String>,
+    commands: Vec<OsString>,
 
     /// Run commands in verbose mode
     ///
@@ -41,7 +42,7 @@ pub struct Cli {
 impl Cli {
     pub fn parse() -> Self {
         // Skip the all arguments which are "q" for cargo subcommands
-        let args = std::env::args()
+        let args = std::env::args_os()
             .filter(|arg| arg != "q")
             .collect::<Vec<_>>();
 
@@ -49,7 +50,7 @@ impl Cli {
     }
 
     pub fn run(self) -> io::Result<()> {
-        let routines = Routine::parse(&self.commands)
+        let routines = Routine::parse_many(&self.commands)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         Executor::new(routines, self.parallel, self.verbose).execute()
     }
@@ -62,11 +63,14 @@ mod tests {
     #[test]
     fn hyphen_values_are_captured() {
         let cli = Cli::parse_from(["cargo-q", "build", "-r", "test", "--no-run"]);
-        assert_eq!(cli.commands, ["build", "-r", "test", "--no-run"]);
+        assert_eq!(
+            cli.commands,
+            ["build", "-r", "test", "--no-run"].map(OsString::from)
+        );
         assert!(!cli.parallel);
         assert!(!cli.verbose);
 
-        let routines = Routine::parse(&cli.commands).unwrap();
+        let routines = Routine::parse_many(&cli.commands).unwrap();
         assert_eq!(routines.len(), 2);
         assert_eq!(routines[0].to_string(), "cargo build -r");
         assert_eq!(routines[1].to_string(), "cargo test --no-run");
@@ -77,6 +81,6 @@ mod tests {
         let cli = Cli::parse_from(["cargo-q", "-p", "-v", "build", "-r"]);
         assert!(cli.parallel);
         assert!(cli.verbose);
-        assert_eq!(cli.commands, ["build", "-r"]);
+        assert_eq!(cli.commands, ["build", "-r"].map(OsString::from));
     }
 }
