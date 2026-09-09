@@ -30,19 +30,6 @@ impl Routine {
         }
     }
 
-    /// Parse a single command. The first word is the cargo subcommand; every
-    /// following word is an argument, whether or not it starts with `-`.
-    fn parse_one(cmd: &str) -> Result<Self, String> {
-        let mut parts = cmd.split_whitespace();
-        let name = parts
-            .next()
-            .ok_or_else(|| "command must not be empty".to_string())?;
-        Ok(Self::new(
-            OsString::from(name),
-            parts.map(OsString::from).collect(),
-        ))
-    }
-
     /// Parse one or more routines from command-line tokens.
     ///
     /// A token that does not start with `-` starts a new command. Subsequent
@@ -58,8 +45,11 @@ impl Routine {
     /// an argument that collides with a name like `test` must be quoted or
     /// attached with `=`.
     ///
-    /// A token that contains whitespace is a complete command (name plus
-    /// arguments), matching quoted CLI arguments such as `"test --features f1"`.
+    /// A token that contains whitespace is split into words. If the first word
+    /// starts with `-`, every word is an argument to the preceding command
+    /// (e.g. `cargo q build "--features test"`). Otherwise the token is a
+    /// complete command, matching quoted CLI arguments such as
+    /// `"test --features f1"`.
     pub fn parse_many<I, S>(tokens: I) -> Result<Vec<Self>, String>
     where
         I: IntoIterator<Item = S>,
@@ -74,48 +64,40 @@ impl Routine {
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
     {
-        let mut routines = Vec::new();
+        let mut routines: Vec<Routine> = vec![];
 
         for token in tokens {
             let token = token.as_ref();
-            if let Some(token) = token.to_str() {
-                if token.split_whitespace().nth(1).is_some() {
-                    let name = token.split_whitespace().next().unwrap_or_default();
-                    Self::check_subcommand(OsStr::new(name), &routines, known)?;
-                    routines.push(Self::parse_one(token)?);
-                    continue;
+            let (name, args) = match token.to_str() {
+                Some(s) => {
+                    let mut parts = s.split_whitespace();
+                    let Some(name) = parts.next() else {
+                        return Err("command must not be empty".to_string());
+                    };
+                    (OsString::from(name), parts.map(OsString::from).collect())
                 }
+                None => (token.to_os_string(), Vec::new()),
+            };
 
-                let token = token.trim();
-                if token.is_empty() {
-                    return Err("command must not be empty".to_string());
-                }
-
-                if token.starts_with('-') {
-                    match routines.last_mut() {
-                        Some(routine) => routine.args.push(OsString::from(token)),
-                        None => {
-                            return Err(format!(
-                                "unexpected argument '{token}': a command must come first"
-                            ));
-                        }
-                    }
-                } else {
-                    Self::check_subcommand(OsStr::new(token), &routines, known)?;
-                    routines.push(Self::new(OsString::from(token), Vec::new()));
-                }
-            } else if token.as_encoded_bytes().starts_with(b"-") {
+            if name.as_encoded_bytes().starts_with(b"-") {
                 match routines.last_mut() {
-                    Some(routine) => routine.args.push(token.to_os_string()),
+                    Some(routine) => {
+                        routine.args.push(name);
+                        routine.args.extend(args);
+                    }
                     None => {
-                        return Err(
-                            "unexpected non-UTF-8 argument: a command must come first".to_string()
-                        )
+                        return Err(match name.to_str() {
+                            Some(s) => {
+                                format!("unexpected argument '{s}': a command must come first")
+                            }
+                            None => "unexpected non-UTF-8 argument: a command must come first"
+                                .to_string(),
+                        });
                     }
                 }
             } else {
-                Self::check_subcommand(token, &routines, known)?;
-                routines.push(Self::new(token.to_os_string(), Vec::new()));
+                Self::check_subcommand(&name, &routines, known)?;
+                routines.push(Self::new(name, args));
             }
         }
 
@@ -212,11 +194,23 @@ mod tests {
     fn test_parse_many_leading_flag_is_error() {
         let err = Routine::parse_many(["-r", "test"]).unwrap_err();
         assert!(err.contains("-r"));
+        let err = Routine::parse_many(["-r --offline", "test"]).unwrap_err();
+        assert!(err.contains("-r"), "{err}");
+    }
+
+    #[test]
+    fn quoted_flags_attach_to_the_previous_command() {
+        let routines = Routine::parse_many(["build", "-r --offline", "test"]).unwrap();
+        assert_eq!(routines.len(), 2);
+        assert_eq!(routines[0].name, "build");
+        assert_eq!(routines[0].args, vec!["-r", "--offline"]);
+        assert_eq!(routines[1].name, "test");
+        assert!(routines[1].args.is_empty());
     }
 
     #[test]
     fn unknown_bare_token_is_rejected_with_a_hint() {
-        let known = Subcommands::from_names(["check"]);
+        let known = Subcommands::from_names(Some(&["check"]));
         let err = Routine::parse_many_with(["build", "--features", "f1"], &known).unwrap_err();
         assert!(err.contains("'f1'"), "{err}");
         assert!(err.contains("cargo q \"test --features f1\""), "{err}");
@@ -225,7 +219,7 @@ mod tests {
 
     #[test]
     fn discovered_subcommand_starts_a_new_command() {
-        let known = Subcommands::from_names(["nextest"]);
+        let known = Subcommands::from_names(Some(&["nextest"]));
         let routines = Routine::parse_many_with(["check", "nextest"], &known).unwrap();
         assert_eq!(routines.len(), 2);
         assert_eq!(routines[1].name, "nextest");
@@ -233,7 +227,7 @@ mod tests {
 
     #[test]
     fn first_command_is_not_validated() {
-        let known = Subcommands::from_names(Vec::<String>::new());
+        let known = Subcommands::from_names(Some(&[]));
         let routines = Routine::parse_many_with(["totally-unknown"], &known).unwrap();
         assert_eq!(routines.len(), 1);
         assert_eq!(routines[0].name, "totally-unknown");
@@ -241,7 +235,7 @@ mod tests {
 
     #[test]
     fn undetermined_lookup_passes_the_token_through() {
-        let known = Subcommands::undetermined();
+        let known = Subcommands::from_names(None);
         let routines = Routine::parse_many_with(["build", "some-third-party"], &known).unwrap();
         assert_eq!(routines.len(), 2);
         assert_eq!(routines[1].name, "some-third-party");
@@ -249,7 +243,7 @@ mod tests {
 
     #[test]
     fn quoted_command_name_is_validated() {
-        let known = Subcommands::from_names(["check"]);
+        let known = Subcommands::from_names(Some(&["check"]));
         let err = Routine::parse_many_with(["check", "nope -r"], &known).unwrap_err();
         assert!(err.contains("'nope'"), "{err}");
 

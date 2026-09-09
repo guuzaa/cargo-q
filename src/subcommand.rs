@@ -75,22 +75,13 @@ impl Subcommands {
     }
 
     /// A lookup over an explicit set, for tests.
+    ///
+    /// `None` is a lookup that never consulted cargo.
     #[cfg(test)]
-    pub fn from_names<I, S>(names: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
+    pub fn from_names(names: Option<&[&str]>) -> Self {
         let discovered = OnceLock::new();
-        let _ = discovered.set(Some(names.into_iter().map(Into::into).collect()));
-        Self { discovered }
-    }
-
-    /// A lookup that never consulted cargo, for tests.
-    #[cfg(test)]
-    pub fn undetermined() -> Self {
-        let discovered = OnceLock::new();
-        let _ = discovered.set(None);
+        let _ =
+            discovered.set(names.map(|names| names.iter().copied().map(str::to_owned).collect()));
         Self { discovered }
     }
 
@@ -160,7 +151,7 @@ mod tests {
 
     #[test]
     fn from_names_is_a_plain_lookup() {
-        let known = Subcommands::from_names(["nextest"]);
+        let known = Subcommands::from_names(Some(&["nextest"]));
         assert_eq!(known.is_known(OsStr::new("nextest")), Some(true));
         assert_eq!(known.is_known(OsStr::new("check")), Some(true));
         assert_eq!(known.is_known(OsStr::new("f1")), Some(false));
@@ -168,7 +159,7 @@ mod tests {
 
     #[test]
     fn undetermined_lookup_answers_nothing() {
-        let known = Subcommands::undetermined();
+        let known = Subcommands::from_names(None);
         assert_eq!(known.is_known(OsStr::new("nextest")), None);
         assert_eq!(known.is_known(OsStr::new("f1")), None);
         // Built-ins are still recognized without cargo.
