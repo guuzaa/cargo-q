@@ -103,11 +103,12 @@ fn unknown_bare_token_exits_nonzero() {
     assert!(stderr.contains("is not a cargo subcommand"), "{stderr}");
 }
 
-/// Install a `cargo` wrapper that stalls before listing, so the window in
-/// which cargo-q resolves subcommand names is wide enough to signal. It
-/// records its pid and then sleeps.
+/// Install a `cargo` wrapper that records its pid and then stalls by replacing
+/// itself with `sleep`, so cargo-q stays blocked inside name resolution for
+/// `seconds`. `exec` keeps the pid and drops the shell, whose SIGINT handling
+/// differs between platforms (`bash` on macOS, `dash` on Linux).
 #[cfg(unix)]
-fn stalling_cargo(dir: &Path) -> PathBuf {
+fn stalling_cargo(dir: &Path, seconds: u32) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
 
     let script = dir.join("stalling-cargo");
@@ -115,7 +116,7 @@ fn stalling_cargo(dir: &Path) -> PathBuf {
     std::fs::write(
         &script,
         format!(
-            "#!/bin/sh\necho $$ > '{}'\nsleep 30\nexec cargo \"$@\"\n",
+            "#!/bin/sh\necho $$ > '{}'\nexec sleep {seconds}\n",
             pid_file.display()
         ),
     )
@@ -125,22 +126,25 @@ fn stalling_cargo(dir: &Path) -> PathBuf {
     pid_file
 }
 
-/// A signal during name resolution must end in a clean `Interrupted`, not the
-/// default action and not a misleading "not a cargo subcommand" error.
+/// A signal that arrives while cargo-q is resolving subcommand names must end
+/// in a clean `Interrupted`, not the default action and not a misleading
+/// "not a cargo subcommand" error.
+///
+/// The wrapper exits on its own, and the signal goes straight to cargo-q via
+/// `libc::kill`: `kill(1)` is known to misparse negative pids (procps on
+/// Linux), which silently sent the signal to the wrong process group and made
+/// this test fail on Linux with exit 1.
 #[cfg(unix)]
 #[test]
 fn interrupt_during_name_resolution_exits_interrupted() {
-    use std::os::unix::process::CommandExt;
     use std::time::{Duration, Instant};
 
     let dir = OutsidePackage::new();
-    let pid_file = stalling_cargo(&dir.0);
+    let pid_file = stalling_cargo(&dir.0, 1);
 
     let child = Command::new(env!("CARGO_BIN_EXE_cargo-q"))
         .args(["check", "some-third-party"])
         .env("CARGO", dir.0.join("stalling-cargo"))
-        // Own process group, so signalling the group mimics a terminal Ctrl-C.
-        .process_group(0)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
@@ -152,11 +156,8 @@ fn interrupt_during_name_resolution_exits_interrupted() {
         std::thread::sleep(Duration::from_millis(10));
     }
 
-    let killed = Command::new("kill")
-        .args(["-INT", &format!("-{}", child.id())])
-        .status()
-        .expect("send SIGINT");
-    assert!(killed.success());
+    let signalled = unsafe { libc::kill(child.id() as libc::pid_t, libc::SIGINT) };
+    assert_eq!(signalled, 0, "send SIGINT to cargo-q");
 
     let output = child.wait_with_output().expect("wait for cargo-q");
     let stderr = String::from_utf8_lossy(&output.stderr);

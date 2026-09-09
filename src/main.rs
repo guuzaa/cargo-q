@@ -29,12 +29,17 @@ fn exit_code(term: Termination) -> ExitCode {
 mod tests {
     use super::*;
 
+    /// `ExitCode: PartialEq` is 1.81+; MSRV is 1.78, so compare Debug.
+    fn assert_code(term: Termination, expected: ExitCode) {
+        assert_eq!(format!("{:?}", exit_code(term)), format!("{:?}", expected));
+    }
+
     #[test]
     fn maps_outcomes_to_exit_codes() {
-        assert_eq!(exit_code(Termination::Success), ExitCode::SUCCESS);
-        assert_eq!(exit_code(Termination::Interrupted), ExitCode::from(130));
-        assert_eq!(exit_code(Termination::Failure(101)), ExitCode::from(101));
+        assert_code(Termination::Success, ExitCode::SUCCESS);
+        assert_code(Termination::Interrupted, ExitCode::from(130));
+        assert_code(Termination::Failure(101), ExitCode::from(101));
         // Out of `u8` range, e.g. a Windows status code: a plain failure.
-        assert_eq!(exit_code(Termination::Failure(1000)), ExitCode::FAILURE);
+        assert_code(Termination::Failure(1000), ExitCode::FAILURE);
     }
 }
