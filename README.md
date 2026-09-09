@@ -46,6 +46,26 @@ Quote a command when an argument does not start with `-`:
 cargo q "test --features feature1"
 ```
 
+A token that does not start with `-` must name a cargo subcommand; otherwise
+cargo-q reports an error instead of guessing:
+
+```bash
+cargo q build --features feature1
+# error: 'feature1' is not a cargo subcommand
+# help: quote the whole command to pass it as an argument: cargo q "test --features f1"
+# help: or use the attached form: cargo q test --features=f1
+```
+
+A bare token that *is* a cargo subcommand still starts a new command, even
+when you meant it as an argument. Feature names like `test` and default
+aliases like `t` collide this way:
+
+```bash
+cargo q build --features test    # runs `cargo build --features` and `cargo test`
+cargo q "build --features test"  # passes test as the feature
+cargo q build --features=test    # same
+```
+
 ### Parallel Execution (Experimental)
 
 > [!WARNING]

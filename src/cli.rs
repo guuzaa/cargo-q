@@ -1,4 +1,5 @@
 use crate::executor::Executor;
+use crate::process::{self, Termination};
 use crate::routine::Routine;
 use clap::Parser;
 use std::ffi::OsString;
@@ -20,9 +21,14 @@ pub struct Cli {
     ///   e.g., check test
     ///   e.g., build -r test --no-run
     ///
-    /// Quote a command when an argument does not start with `-`:
+    /// After the first command, a bare token is only accepted if cargo knows
+    /// a subcommand by that name. Quote a command when an argument does not
+    /// start with `-`, including when that argument is itself a subcommand
+    /// name (e.g. a feature called `test`):
     ///
     ///   e.g., "test --features f1"
+    ///   e.g., "build --features test"
+    ///   e.g., build --features=test
     #[arg(required = true, allow_hyphen_values = true, trailing_var_arg = true)]
     commands: Vec<OsString>,
 
@@ -49,9 +55,25 @@ impl Cli {
         Self::parse_from(args)
     }
 
-    pub fn run(self) -> io::Result<()> {
-        let routines = Routine::parse_many(&self.commands)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+    /// Parse-and-run entry point.
+    ///
+    /// The interrupt handler is installed before parsing, because resolving
+    /// subcommand names spawns `cargo --list` too, and a signal during that
+    /// window must end in a clean `Interrupted` instead of the default action.
+    pub fn run(self) -> io::Result<Termination> {
+        process::install_interrupt_handler();
+
+        if process::was_interrupted() {
+            return Ok(Termination::Interrupted);
+        }
+
+        let routines = match Routine::parse_many(&self.commands) {
+            Ok(routines) => routines,
+            // A signal that arrives while names are being resolved must not
+            // surface as a misleading parse error.
+            Err(_) if process::was_interrupted() => return Ok(Termination::Interrupted),
+            Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidInput, e)),
+        };
         Executor::new(routines, self.parallel, self.verbose).execute()
     }
 }

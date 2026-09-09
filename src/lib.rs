@@ -11,4 +11,5 @@ pub mod process;
 pub mod progress;
 pub mod routine;
 pub mod strategy;
+mod subcommand;
 pub mod thread_pool;

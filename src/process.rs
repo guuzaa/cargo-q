@@ -27,7 +27,21 @@ use windows_sys::Win32::System::Threading::{
 pub enum Termination {
     Success,
     Interrupted,
-    Failure,
+    /// The command failed. Carries the child's exit code, or `128 + signal`
+    /// when it was killed by a signal, following shell convention.
+    Failure(i32),
+}
+
+impl Termination {
+    /// The exit code that reports this outcome to the shell.
+    #[inline]
+    pub fn exit_code(self) -> i32 {
+        match self {
+            Termination::Success => 0,
+            Termination::Interrupted => 130,
+            Termination::Failure(code) => code,
+        }
+    }
 }
 
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
@@ -153,13 +167,30 @@ fn termination_from_status(status: ExitStatus) -> Termination {
         return Termination::Interrupted;
     }
     if status.success() {
-        Termination::Success
-    } else if signaled_interrupt(status) {
-        INTERRUPTED.store(true, Ordering::SeqCst);
-        Termination::Interrupted
-    } else {
-        Termination::Failure
+        return Termination::Success;
     }
+    if signaled_interrupt(status) {
+        INTERRUPTED.store(true, Ordering::SeqCst);
+        return Termination::Interrupted;
+    }
+    Termination::Failure(exit_code(status))
+}
+
+/// The shell-facing exit code of a failed child. A child killed by a signal
+/// has no exit code, so follow the shell convention of `128 + signal`.
+#[cfg(unix)]
+fn exit_code(status: ExitStatus) -> i32 {
+    use std::os::unix::process::ExitStatusExt;
+    match (status.code(), status.signal()) {
+        (Some(code), _) => code,
+        (None, Some(signal)) => 128 + signal,
+        (None, None) => 1,
+    }
+}
+
+#[cfg(not(unix))]
+fn exit_code(status: ExitStatus) -> i32 {
+    status.code().unwrap_or(1)
 }
 
 #[cfg(unix)]
@@ -272,7 +303,21 @@ mod tests {
         #[cfg(windows)]
         let (term, _) = run_shell("exit 7");
 
-        assert_eq!(term, Termination::Failure);
+        assert_eq!(term, Termination::Failure(7));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reports_signal_death_as_128_plus_signal() {
+        let (term, _) = run_shell("kill -9 $$");
+        assert_eq!(term, Termination::Failure(137));
+    }
+
+    #[test]
+    fn maps_outcomes_to_exit_codes() {
+        assert_eq!(Termination::Success.exit_code(), 0);
+        assert_eq!(Termination::Interrupted.exit_code(), 130);
+        assert_eq!(Termination::Failure(101).exit_code(), 101);
     }
 
     #[cfg(unix)]

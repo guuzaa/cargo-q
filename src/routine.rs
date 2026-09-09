@@ -1,4 +1,5 @@
 use crate::process::{self, Termination};
+use crate::subcommand::Subcommands;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io;
@@ -47,9 +48,28 @@ impl Routine {
     /// A token that does not start with `-` starts a new command. Subsequent
     /// tokens that start with `-` are arguments to that command.
     ///
+    /// A bare token is only accepted as a new command when cargo knows a
+    /// subcommand by that name. Anything else is most likely an argument the
+    /// parser cannot tell apart from a command, so it is rejected with a hint
+    /// rather than silently running the wrong command. When cargo cannot be
+    /// consulted the token is passed through instead. The first command is
+    /// exempt: there it is unambiguous, and cargo reports a bad name itself.
+    /// A token that matches a known subcommand still starts a new command, so
+    /// an argument that collides with a name like `test` must be quoted or
+    /// attached with `=`.
+    ///
     /// A token that contains whitespace is a complete command (name plus
     /// arguments), matching quoted CLI arguments such as `"test --features f1"`.
     pub fn parse_many<I, S>(tokens: I) -> Result<Vec<Self>, String>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        Self::parse_many_with(tokens, &Subcommands::new())
+    }
+
+    /// [`Self::parse_many`] with an explicit subcommand lookup.
+    pub(crate) fn parse_many_with<I, S>(tokens: I, known: &Subcommands) -> Result<Vec<Self>, String>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
@@ -60,6 +80,8 @@ impl Routine {
             let token = token.as_ref();
             if let Some(token) = token.to_str() {
                 if token.split_whitespace().nth(1).is_some() {
+                    let name = token.split_whitespace().next().unwrap_or_default();
+                    Self::check_subcommand(OsStr::new(name), &routines, known)?;
                     routines.push(Self::parse_one(token)?);
                     continue;
                 }
@@ -79,6 +101,7 @@ impl Routine {
                         }
                     }
                 } else {
+                    Self::check_subcommand(OsStr::new(token), &routines, known)?;
                     routines.push(Self::new(OsString::from(token), Vec::new()));
                 }
             } else if token.as_encoded_bytes().starts_with(b"-") {
@@ -91,6 +114,7 @@ impl Routine {
                     }
                 }
             } else {
+                Self::check_subcommand(token, &routines, known)?;
                 routines.push(Self::new(token.to_os_string(), Vec::new()));
             }
         }
@@ -100,6 +124,31 @@ impl Routine {
         }
 
         Ok(routines)
+    }
+
+    /// Reject a bare token that would start a new command but names no cargo
+    /// subcommand.
+    ///
+    /// Only a definite answer rejects the token: when cargo could not be
+    /// consulted (`None`) the token is passed through and cargo reports it
+    /// itself. The first command is exempt: there the token is unambiguous,
+    /// and cargo gives a better error for a bad name anyway.
+    fn check_subcommand(
+        name: &OsStr,
+        routines: &[Self],
+        known: &Subcommands,
+    ) -> Result<(), String> {
+        if routines.is_empty() || !matches!(known.is_known(name), Some(false)) {
+            return Ok(());
+        }
+
+        let name = name.to_string_lossy();
+        Err(format!(
+            "error: '{name}' is not a cargo subcommand\n\
+             note: cargo-q starts a new command at every token that does not start with '-'\n\
+             help: quote the whole command to pass it as an argument: cargo q \"test --features f1\"\n\
+             help: or use the attached form: cargo q test --features=f1"
+        ))
     }
 
     /// Run this routine. The executable was resolved once, when the
@@ -163,6 +212,51 @@ mod tests {
     fn test_parse_many_leading_flag_is_error() {
         let err = Routine::parse_many(["-r", "test"]).unwrap_err();
         assert!(err.contains("-r"));
+    }
+
+    #[test]
+    fn unknown_bare_token_is_rejected_with_a_hint() {
+        let known = Subcommands::from_names(["check"]);
+        let err = Routine::parse_many_with(["build", "--features", "f1"], &known).unwrap_err();
+        assert!(err.contains("'f1'"), "{err}");
+        assert!(err.contains("cargo q \"test --features f1\""), "{err}");
+        assert!(err.contains("--features=f1"), "{err}");
+    }
+
+    #[test]
+    fn discovered_subcommand_starts_a_new_command() {
+        let known = Subcommands::from_names(["nextest"]);
+        let routines = Routine::parse_many_with(["check", "nextest"], &known).unwrap();
+        assert_eq!(routines.len(), 2);
+        assert_eq!(routines[1].name, "nextest");
+    }
+
+    #[test]
+    fn first_command_is_not_validated() {
+        let known = Subcommands::from_names(Vec::<String>::new());
+        let routines = Routine::parse_many_with(["totally-unknown"], &known).unwrap();
+        assert_eq!(routines.len(), 1);
+        assert_eq!(routines[0].name, "totally-unknown");
+    }
+
+    #[test]
+    fn undetermined_lookup_passes_the_token_through() {
+        let known = Subcommands::undetermined();
+        let routines = Routine::parse_many_with(["build", "some-third-party"], &known).unwrap();
+        assert_eq!(routines.len(), 2);
+        assert_eq!(routines[1].name, "some-third-party");
+    }
+
+    #[test]
+    fn quoted_command_name_is_validated() {
+        let known = Subcommands::from_names(["check"]);
+        let err = Routine::parse_many_with(["check", "nope -r"], &known).unwrap_err();
+        assert!(err.contains("'nope'"), "{err}");
+
+        let routines = Routine::parse_many_with(["check", "test -r"], &known).unwrap();
+        assert_eq!(routines.len(), 2);
+        assert_eq!(routines[1].name, "test");
+        assert_eq!(routines[1].args, vec!["-r"]);
     }
 
     #[test]

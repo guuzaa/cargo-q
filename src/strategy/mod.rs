@@ -1,3 +1,4 @@
+use crate::process::Termination;
 use crate::routine::Routine;
 use std::{io, thread};
 
@@ -11,7 +12,9 @@ pub fn num_cpus() -> usize {
 }
 
 pub trait ExecutionStrategy {
-    fn execute(&self, routines: &[Routine], verbose: bool) -> io::Result<()>;
+    /// Run every routine and report the first failure, so callers can turn a
+    /// failed command into a non-zero exit status.
+    fn execute(&self, routines: &[Routine], verbose: bool) -> io::Result<Termination>;
 }
 
 mod parallel;

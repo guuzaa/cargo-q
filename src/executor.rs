@@ -1,3 +1,4 @@
+use crate::process::Termination;
 use crate::routine::Routine;
 use crate::strategy::{ExecutionStrategy, ParallelStrategy, SequentialStrategy};
 use std::io;
@@ -17,9 +18,8 @@ impl Executor {
         }
     }
 
-    pub fn execute(&self) -> io::Result<()> {
-        crate::process::install_interrupt_handler();
-
+    /// Run the routines with the selected strategy.
+    pub fn execute(&self) -> io::Result<Termination> {
         let strategy: Box<dyn ExecutionStrategy> = match self.parallel {
             true => Box::new(ParallelStrategy),
             false => Box::new(SequentialStrategy),
