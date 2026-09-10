@@ -2,7 +2,7 @@
 
 A Cargo subcommand for running multiple Cargo commands sequentially or in parallel.
 
-[![usage](https://asciinema.org/a/YlyT7mmdtzxXI6BS.svg)](https://asciinema.org/a/YlyT7mmdtzxXI6BS)
+[![usage](https://asciinema.org/a/1265027.svg)](https://asciinema.org/a/1265027)
 
 ## Installation
 
@@ -52,8 +52,17 @@ cargo-q reports an error instead of guessing:
 ```bash
 cargo q build --features feature1
 # error: 'feature1' is not a cargo subcommand
-# help: quote the whole command to pass it as an argument: cargo q "test --features f1"
-# help: or use the attached form: cargo q test --features=f1
+# help: quote the whole command: cargo q "build --features feature1"
+# help: or attach the value: cargo q build --features=feature1
+```
+
+The hints name the command you actually typed, so the fix can be pasted back:
+
+```bash
+cargo q run -p oven
+# error: 'oven' is not a cargo subcommand
+# help: quote the whole command: cargo q "run -p oven"
+# help: or attach the value: cargo q run -p=oven
 ```
 
 A bare token that *is* a cargo subcommand still starts a new command, even

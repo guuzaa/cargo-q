@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.1] - 2026-09-10
+### Fixed
+- Failed commands now exit with the child's status (`128 + signal` if killed by a signal) instead of always exiting 0, so `set -e`, `&&` chains, and CI can detect failures. `cargo q test` exits 101 when tests fail; Ctrl-C still exits 130.
+- Sequential mode still runs the rest of the list after a failure and reports the first failure's code; parallel mode reports whichever failure is observed first.
+- The interrupt handler is now installed before parsing, because resolving subcommand names spawns `cargo --list` too. A signal during that window now ends in a clean `Interrupted` (exit 130) instead of the default signal action, and can no longer be mistaken for a parse error.
+
+### Changed
+- After the first command, a bare token is only accepted as a new command when cargo knows that subcommand (built-ins, third-party `cargo-*` binaries, and aliases). Unknown tokens are rejected with a hint instead of silently running the wrong command (e.g. `cargo q build --features f1` used to run `cargo f1`, `cargo q r -p oven` use to run `cargo oven`). If cargo cannot be consulted, the token is passed through.
+- A known subcommand name still starts a new command, so a positional argument that collides with a name or alias (`test`, `t`, …) needs quoting or `=`: `cargo q "build --features test"` / `cargo q build --features=test`.
+- A quoted multi-word token whose first word starts with `-` is a list of arguments to the preceding command (e.g. `cargo q build "--features test"`), not a new command named after that flag.
+
 ## [0.3.0] - 2026-09-05
 ### Added
 - Tokens starting with `-` are now treated as arguments to the preceding command, so flags can be passed without quoting (e.g. `cargo q build -r test --no-run`)
