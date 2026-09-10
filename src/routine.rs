@@ -96,7 +96,7 @@ impl Routine {
                     }
                 }
             } else {
-                Self::check_subcommand(&name, &routines, known)?;
+                Self::check_subcommand(&name, &args, &routines, known)?;
                 routines.push(Self::new(name, args));
             }
         }
@@ -117,19 +117,69 @@ impl Routine {
     /// and cargo gives a better error for a bad name anyway.
     fn check_subcommand(
         name: &OsStr,
+        extra: &[OsString],
         routines: &[Self],
         known: &Subcommands,
     ) -> Result<(), String> {
-        if routines.is_empty() || !matches!(known.is_known(name), Some(false)) {
+        if !matches!(known.is_known(name), Some(false)) {
             return Ok(());
         }
+        let Some((last, earlier)) = routines.split_last() else {
+            return Ok(());
+        };
 
         let name = name.to_string_lossy();
+        let prefix = Self::q_prefix(earlier);
+
+        let mut words = vec![last.to_q_tokens(), name.to_string()];
+        words.extend(extra.iter().map(|arg| arg.to_string_lossy().into_owned()));
+        let quoted_cmd = words.join(" ");
+
+        let attached_hint = match last.attached_form(&name, extra) {
+            Some(attached) => format!("\nhelp: or attach the value: {prefix}{attached}"),
+            None => String::new(),
+        };
+
         Err(format!(
             "error: '{name}' is not a cargo subcommand\n\
-             note: cargo-q starts a new command at every token that does not start with '-'\n\
-             help: quote the whole command to pass it as an argument: cargo q \"test --features f1\"\n\
-             help: or use the attached form: cargo q test --features=f1"
+             help: quote the whole command: {prefix}\"{quoted_cmd}\"{attached_hint}"
+        ))
+    }
+
+    /// `cargo q ` followed by already-parsed commands, each ending in a space.
+    fn q_prefix(routines: &[Self]) -> String {
+        let commands: String = routines
+            .iter()
+            .map(|routine| format!("{} ", routine.to_q_tokens()))
+            .collect();
+        format!("cargo q {commands}")
+    }
+
+    /// This command as cargo-q would accept it: `name` plus its arguments.
+    fn to_q_tokens(&self) -> String {
+        join_lossy(std::iter::once(&self.name).chain(self.args.iter()))
+    }
+
+    /// Attach `value` (and any extra words) to the last flag with `=`.
+    ///
+    /// Only offered when that last argument looks like a flag that still
+    /// needs a value: it starts with `-` and does not already contain `=`.
+    fn attached_form(&self, value: &str, extra: &[OsString]) -> Option<String> {
+        let (flag, head) = self.args.split_last()?;
+        let flag = flag.to_str()?;
+        if !flag.starts_with('-') || flag.contains('=') {
+            return None;
+        }
+
+        // Extra words are quoted with the value so they stay in one token.
+        let value = match extra {
+            [] => value.to_string(),
+            extra => format!("\"{value} {}\"", join_lossy(extra)),
+        };
+
+        Some(format!(
+            "{} {flag}={value}",
+            join_lossy(std::iter::once(&self.name).chain(head))
         ))
     }
 
@@ -142,6 +192,21 @@ impl Routine {
             .collect();
         process::run_command(&self.bin, args, verbose, output_cb)
     }
+}
+
+/// `parts` joined by spaces, each rendered as lossy UTF-8: these strings are
+/// only ever shown to a human, so an argument cargo-q cannot round-trip
+/// verbatim is better echoed back with replacement characters than dropped.
+fn join_lossy<I, S>(parts: I) -> String
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    parts
+        .into_iter()
+        .map(|part| part.as_ref().to_string_lossy().into_owned())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[cfg(test)]
@@ -213,8 +278,42 @@ mod tests {
         let known = Subcommands::from_names(Some(&["check"]));
         let err = Routine::parse_many_with(["build", "--features", "f1"], &known).unwrap_err();
         assert!(err.contains("'f1'"), "{err}");
-        assert!(err.contains("cargo q \"test --features f1\""), "{err}");
-        assert!(err.contains("--features=f1"), "{err}");
+        assert!(err.contains("cargo q \"build --features f1\""), "{err}");
+        assert!(err.contains("cargo q build --features=f1"), "{err}");
+    }
+
+    #[test]
+    fn hint_uses_the_full_invoked_command() {
+        let known = Subcommands::from_names(Some(&["check", "r"]));
+        let err = Routine::parse_many_with(["r", "-p", "oven"], &known).unwrap_err();
+        assert_eq!(
+            err,
+            "error: 'oven' is not a cargo subcommand\n\
+             help: quote the whole command: cargo q \"r -p oven\"\n\
+             help: or attach the value: cargo q r -p=oven"
+        );
+
+        let err = Routine::parse_many_with(["check", "r", "-p", "oven"], &known).unwrap_err();
+        assert!(err.contains("cargo q check \"r -p oven\""), "{err}");
+        assert!(err.contains("cargo q check r -p=oven"), "{err}");
+
+        let err = Routine::parse_many_with(["r", "-p", "oven extra"], &known).unwrap_err();
+        assert!(err.contains("cargo q \"r -p oven extra\""), "{err}");
+        assert!(err.contains("cargo q r -p=\"oven extra\""), "{err}");
+    }
+
+    /// `cargo q run oven`: `oven` is read as a new command, so the hint names
+    /// the command it was probably meant to accompany. With no flag to attach
+    /// to, only the quoted form is offered.
+    #[test]
+    fn hint_quotes_the_command_the_token_belongs_to() {
+        let known = Subcommands::from_names(Some(&["check"]));
+        let err = Routine::parse_many_with(["run", "oven"], &known).unwrap_err();
+        assert_eq!(
+            err,
+            "error: 'oven' is not a cargo subcommand\n\
+             help: quote the whole command: cargo q \"run oven\""
+        );
     }
 
     #[test]

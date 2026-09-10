@@ -18,16 +18,16 @@ pub struct Cli {
     /// A token that does not start with `-` starts a new command; following
     /// tokens that start with `-` are its arguments:
     ///
-    ///   e.g., check test
-    ///   e.g., build -r test --no-run
+    ///   e.g., check test, build -r test --no-run
     ///
-    /// After the first command, a bare token is only accepted if cargo knows
-    /// a subcommand by that name. Quote a command when an argument does not
+    /// Quote a command when an argument does not
     /// start with `-`, including when that argument is itself a subcommand
     /// name (e.g. a feature called `test`):
     ///
-    ///   e.g., "test --features f1"
-    ///   e.g., "build --features test"
+    ///   e.g., "test --features f1" , "build --features test"
+    ///
+    /// If you'd rather not quote, attach the value with `=`:
+    ///
     ///   e.g., build --features=test
     #[arg(required = true, allow_hyphen_values = true, trailing_var_arg = true)]
     commands: Vec<OsString>,
