@@ -7,7 +7,8 @@ use std::io;
 
 #[derive(Parser, Debug)]
 #[command(name = "cargo-q")]
-#[command(version)]
+#[command(version = concat!(env!("CARGO_PKG_VERSION"), " (",
+        env!("GIT_HASH"), " ", env!("GIT_COMMIT_DATE"), ")"))]
 #[command(
     about = "A Cargo subcommand for running multiple Cargo commands sequentially or in parallel."
 )]
