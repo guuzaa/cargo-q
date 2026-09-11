@@ -8,7 +8,7 @@ fn main() -> ExitCode {
         Ok(term) => exit_code(term),
         Err(e) if e.kind() == ErrorKind::Interrupted => ExitCode::from(130),
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{e}");
             ExitCode::FAILURE
         }
     }

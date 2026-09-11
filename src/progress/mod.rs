@@ -8,9 +8,7 @@ mod color;
 mod dumb;
 mod fancy;
 
-pub(crate) use color::ColorExt;
-use dumb::DumbConsoleProgress;
-use fancy::{use_fancy, FancyConsoleProgress};
+pub(crate) use color::Colorful;
 use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::Instant;
@@ -32,11 +30,12 @@ pub trait Progress: Send + Sync {
 /// Fancy overprinting is only used on an interactive terminal and when
 /// commands do not inherit stdio (`verbose` is false); otherwise cargo
 /// output would collide with the status display.
-pub fn new_progress(total: usize, verbose: bool) -> Arc<dyn Progress> {
-    if use_fancy() {
-        Arc::new(FancyConsoleProgress::new(total, verbose))
+#[must_use]
+pub fn new(total: usize, verbose: bool) -> Arc<dyn Progress> {
+    if fancy::enabled() {
+        Arc::new(fancy::ConsoleProgress::new(total, verbose))
     } else {
-        Arc::new(DumbConsoleProgress::new(total, verbose))
+        Arc::new(dumb::ConsoleProgress::new(total, verbose))
     }
 }
 
@@ -85,9 +84,8 @@ pub(crate) fn print_summary(success: usize, started: usize, total: usize, start_
         )
         .expect("write stdio failed");
     }
-    writeln!(handle, "{} {} command(s) in {:.2}s", status, total, elapsed)
-        .expect("write stdio failed");
-    handle.flush().expect("flush stdio failed")
+    writeln!(handle, "{status} {total} command(s) in {elapsed:.2}s").expect("write stdio failed");
+    handle.flush().expect("flush stdio failed");
 }
 
 #[cfg(test)]

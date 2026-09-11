@@ -1,12 +1,12 @@
-use super::{num_cpus, ExecutionStrategy};
+use super::{num_cpus, Strategy};
 use crate::process::{self, Termination};
-use crate::progress::new_progress;
+use crate::progress;
 use crate::routine::Routine;
 use crate::thread_pool::ThreadPool;
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
-pub struct ParallelStrategy;
+pub struct Parallel;
 
 /// The first thing that went wrong, kept for the final report. Commands run
 /// concurrently, so "first" means whichever reported first, not the first in
@@ -16,9 +16,9 @@ enum Failure {
     Spawn(io::Error),
 }
 
-impl ExecutionStrategy for ParallelStrategy {
+impl Strategy for Parallel {
     fn execute(&self, routines: &[Routine], verbose: bool) -> io::Result<Termination> {
-        let progress = new_progress(routines.len(), verbose);
+        let progress = progress::new(routines.len(), verbose);
         let pool = ThreadPool::new(routines.len().min(num_cpus()));
         let failure: Arc<Mutex<Option<Failure>>> = Arc::new(Mutex::new(None));
 
@@ -58,7 +58,10 @@ impl ExecutionStrategy for ParallelStrategy {
             return Ok(Termination::Interrupted);
         }
 
-        let failure = failure.lock().unwrap_or_else(|e| e.into_inner()).take();
+        let failure = failure
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
         match failure {
             Some(Failure::Exit(code)) => Ok(Termination::Failure(code)),
             Some(Failure::Spawn(e)) => Err(e),
@@ -68,7 +71,7 @@ impl ExecutionStrategy for ParallelStrategy {
 }
 
 fn record(slot: &Mutex<Option<Failure>>, failure: Failure) {
-    let mut slot = slot.lock().unwrap_or_else(|e| e.into_inner());
+    let mut slot = slot.lock().unwrap_or_else(PoisonError::into_inner);
     if slot.is_none() {
         *slot = Some(failure);
     }

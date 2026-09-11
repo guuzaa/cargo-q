@@ -1,14 +1,14 @@
-use super::ExecutionStrategy;
+use super::Strategy;
 use crate::process::{self, Termination};
-use crate::progress::new_progress;
+use crate::progress;
 use crate::routine::Routine;
 use std::io;
 
-pub struct SequentialStrategy;
+pub struct Sequential;
 
-impl ExecutionStrategy for SequentialStrategy {
+impl Strategy for Sequential {
     fn execute(&self, routines: &[Routine], verbose: bool) -> io::Result<Termination> {
-        let progress = new_progress(routines.len(), verbose);
+        let progress = progress::new(routines.len(), verbose);
         let mut failure = None;
 
         for (id, cmd) in routines.iter().enumerate() {

@@ -1,6 +1,6 @@
 //! Progress reporting for a "fancy" console, with progress bar etc.
 
-use super::{append_stream, print_summary, truncate, ColorExt, Progress};
+use super::{append_stream, print_summary, truncate, Colorful, Progress};
 use std::collections::VecDeque;
 use std::io::{self, IsTerminal, Write};
 use std::sync::{Arc, Condvar, Mutex};
@@ -20,7 +20,7 @@ struct Task {
 /// prints the status text, and then moves the cursor back up to the start
 /// position. This means on errors etc. we can clear any status by clearing
 /// the console too.
-pub struct FancyConsoleProgress {
+pub struct ConsoleProgress {
     state: Arc<Mutex<FancyState>>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
@@ -34,14 +34,14 @@ const UPDATE_DELAY: Duration = Duration::from_millis(50);
 /// do not appear hung.
 const TIMEOUT_DELAY: Duration = Duration::from_millis(500);
 
-impl FancyConsoleProgress {
+impl ConsoleProgress {
     pub fn new(total: usize, verbose: bool) -> Self {
         let dirty_cond = Arc::new(Condvar::new());
         let state = Arc::new(Mutex::new(FancyState {
             done: false,
             pending: Vec::new(),
             dirty: false,
-            dirty_cond: dirty_cond.clone(),
+            dirty_cond: Arc::clone(&dirty_cond),
             verbose,
             total,
             done_count: 0,
@@ -56,14 +56,14 @@ impl FancyConsoleProgress {
         // Thread to debounce status updates -- waits a bit, then prints after
         // any dirty state.
         let thread = std::thread::spawn({
-            let state_lock = state.clone();
+            let state_lock = Arc::clone(&state);
             move || loop {
                 // Wait to be notified of a display update or timeout.
                 {
                     let (state, _) = dirty_cond
                         .wait_timeout_while(
                             state_lock.lock().unwrap(),
-                            TIMEOUT_DELAY - UPDATE_DELAY,
+                            TIMEOUT_DELAY.checked_sub(UPDATE_DELAY).unwrap(),
                             |state| !state.done && !state.dirty,
                         )
                         .unwrap();
@@ -84,14 +84,14 @@ impl FancyConsoleProgress {
             }
         });
 
-        FancyConsoleProgress {
+        ConsoleProgress {
             state,
             thread: Some(thread),
         }
     }
 }
 
-impl Progress for FancyConsoleProgress {
+impl Progress for ConsoleProgress {
     fn task_started(&self, id: usize, cmd: &str) {
         self.state.lock().unwrap().task_started(id, cmd);
     }
@@ -105,7 +105,7 @@ impl Progress for FancyConsoleProgress {
     }
 }
 
-impl Drop for FancyConsoleProgress {
+impl Drop for ConsoleProgress {
     fn drop(&mut self) {
         let (success, started, total, start_time) = {
             let mut state = self.state.lock().unwrap();
@@ -130,7 +130,7 @@ struct FancyState {
     pending: Vec<u8>,
 
     /// True when there is new progress to display.
-    /// When set, will notify dirty_cond.
+    /// When set, will notify `dirty_cond`.
     dirty: bool,
     dirty_cond: Arc<Condvar>,
 
@@ -204,7 +204,7 @@ impl FancyState {
         }
 
         self.failed_count += 1;
-        writeln!(&mut self.pending, "failed: {}", cmd).ok();
+        let _ = writeln!(&mut self.pending, "failed: {cmd}");
         if !self.verbose {
             let output = self
                 .outputs
@@ -269,18 +269,17 @@ impl FancyState {
         if !at_column_zero(buf) {
             buf.push(b'\n');
         }
-        write!(
+        let _ = write!(
             buf,
             "[{}] {}/{} done, ",
             progress_bar(completed, running, self.total, 40),
             completed,
             self.total
-        )
-        .ok();
+        );
         if failed > 0 {
-            write!(buf, "{} failed, ", failed).ok();
+            let _ = write!(buf, "{failed} failed, ");
         }
-        writeln!(buf, "{} running", running).ok();
+        let _ = writeln!(buf, "{running} running");
         let mut lines = 1;
 
         let max_cols = get_cols();
@@ -288,18 +287,18 @@ impl FancyState {
         let now = Instant::now();
         for task in self.tasks.iter().take(max_tasks) {
             let delta = now.duration_since(task.start).as_secs() as usize;
-            writeln!(buf, "{}", task_message(&task.message, delta, max_cols)).ok();
+            let _ = writeln!(buf, "{}", task_message(&task.message, delta, max_cols));
             lines += 1;
         }
 
         if self.tasks.len() > max_tasks {
             let remaining = self.tasks.len() - max_tasks;
-            writeln!(buf, "...and {} more", remaining).ok();
+            let _ = writeln!(buf, "...and {remaining} more");
             lines += 1;
         }
 
         // Move cursor up to the first printed line, for overprinting.
-        write!(buf, "\x1b[{}A", lines).ok();
+        let _ = write!(buf, "\x1b[{lines}A");
         let mut out = std::io::stdout();
         out.write_all(buf).unwrap();
         out.flush().unwrap();
@@ -316,7 +315,7 @@ impl FancyState {
 
 /// Fancy progress is used when stdout is a terminal.
 #[inline]
-pub fn use_fancy() -> bool {
+pub fn enabled() -> bool {
     io::stdout().is_terminal()
 }
 
@@ -331,7 +330,7 @@ fn at_column_zero(buf: &[u8]) -> bool {
 
 /// Write one output line with a command prefix so parallel streams stay readable.
 fn write_prefixed_line(buf: &mut Vec<u8>, prefix: &str, line: &[u8]) {
-    write!(buf, "{}: ", truncate(prefix, 32).bold()).ok();
+    let _ = write!(buf, "{}: ", truncate(prefix, 32).bold()).ok();
     for &b in line {
         if b != b'\r' {
             buf.push(b);
@@ -346,7 +345,7 @@ fn write_prefixed_line(buf: &mut Vec<u8>, prefix: &str, line: &[u8]) {
 /// and also to fit within a maximum number of terminal columns.
 fn task_message(message: &str, seconds: usize, max_cols: usize) -> String {
     let time_note = if seconds > 2 {
-        format!(" ({}s)", seconds)
+        format!(" ({seconds}s)")
     } else {
         String::new()
     };

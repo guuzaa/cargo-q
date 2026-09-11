@@ -1,12 +1,12 @@
 //! Progress reporting for a "dumb" console, without any overprinting.
 
-use super::{append_stream, print_summary, ColorExt, Progress};
+use super::{append_stream, print_summary, Colorful, Progress};
 use std::io::Write;
 use std::sync::Mutex;
 use std::time::Instant;
 
 /// Progress implementation for "dumb" console, without any overprinting.
-pub struct DumbConsoleProgress {
+pub struct ConsoleProgress {
     state: Mutex<DumbState>,
 }
 
@@ -20,7 +20,7 @@ struct DumbState {
     outputs: Vec<Vec<u8>>,
 }
 
-impl DumbConsoleProgress {
+impl ConsoleProgress {
     pub fn new(total: usize, verbose: bool) -> Self {
         Self {
             state: Mutex::new(DumbState {
@@ -35,7 +35,7 @@ impl DumbConsoleProgress {
     }
 }
 
-impl Progress for DumbConsoleProgress {
+impl Progress for ConsoleProgress {
     fn task_started(&self, _id: usize, cmd: &str) {
         let mut state = self.state.lock().unwrap();
         state.started_count += 1;
@@ -78,11 +78,11 @@ impl Progress for DumbConsoleProgress {
             .map(std::mem::take)
             .unwrap_or_default();
         if state.verbose {
-            println!("failed: {}", cmd);
+            println!("failed: {cmd}");
             return;
         }
 
-        let head = format!("failed: {}", cmd);
+        let head = format!("failed: {cmd}");
         let mut buf = Vec::with_capacity(head.len() + output.len());
         append_stream(&mut buf, head.as_bytes());
         append_stream(&mut buf, &output);
@@ -90,7 +90,7 @@ impl Progress for DumbConsoleProgress {
     }
 }
 
-impl Drop for DumbConsoleProgress {
+impl Drop for ConsoleProgress {
     fn drop(&mut self) {
         let state = self.state.lock().unwrap();
         print_summary(
@@ -107,7 +107,7 @@ mod tests {
     use super::*;
     use crate::progress::Progress;
 
-    impl DumbConsoleProgress {
+    impl ConsoleProgress {
         fn success_count(&self) -> usize {
             self.state.lock().unwrap().success_count
         }
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn tracks_count() {
-        let progress = DumbConsoleProgress::new(4, false);
+        let progress = ConsoleProgress::new(4, false);
         assert_eq!(progress.success_count(), 0);
         assert_eq!(progress.total(), 4);
 

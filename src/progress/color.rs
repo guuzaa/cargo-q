@@ -1,7 +1,7 @@
 use std::fmt;
 use std::io::{self, IsTerminal};
 
-pub trait ColorExt {
+pub trait Colorful {
     fn red(self) -> ColoredString;
     fn green(self) -> ColoredString;
     fn yellow(self) -> ColoredString;
@@ -21,31 +21,31 @@ fn color_enabled() -> bool {
     io::stdout().is_terminal()
 }
 
-impl<T: fmt::Display> ColorExt for T {
+impl<T: fmt::Display> Colorful for T {
     fn red(self) -> ColoredString {
         if color_enabled() {
-            ColoredString(format!("\x1b[31m{}\x1b[0m", self))
+            ColoredString(format!("\x1b[31m{self}\x1b[0m"))
         } else {
             ColoredString(self.to_string())
         }
     }
     fn green(self) -> ColoredString {
         if color_enabled() {
-            ColoredString(format!("\x1b[32m{}\x1b[0m", self))
+            ColoredString(format!("\x1b[32m{self}\x1b[0m"))
         } else {
             ColoredString(self.to_string())
         }
     }
     fn yellow(self) -> ColoredString {
         if color_enabled() {
-            ColoredString(format!("\x1b[33m{}\x1b[0m", self))
+            ColoredString(format!("\x1b[33m{self}\x1b[0m"))
         } else {
             ColoredString(self.to_string())
         }
     }
     fn bold(self) -> ColoredString {
         if color_enabled() {
-            ColoredString(format!("\x1b[1m{}\x1b[0m", self))
+            ColoredString(format!("\x1b[1m{self}\x1b[0m"))
         } else {
             ColoredString(self.to_string())
         }

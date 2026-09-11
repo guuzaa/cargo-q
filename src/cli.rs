@@ -47,6 +47,7 @@ pub struct Cli {
 }
 
 impl Cli {
+    #[must_use]
     pub fn parse() -> Self {
         // Skip the all arguments which are "q" for cargo subcommands
         let args = std::env::args_os()

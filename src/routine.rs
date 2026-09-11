@@ -148,10 +148,11 @@ impl Routine {
 
     /// `cargo q ` followed by already-parsed commands, each ending in a space.
     fn q_prefix(routines: &[Self]) -> String {
-        let commands: String = routines
-            .iter()
-            .map(|routine| format!("{} ", routine.to_q_tokens()))
-            .collect();
+        let commands: String = routines.iter().fold(String::new(), |mut acc, routine| {
+            acc.push_str(&routine.to_q_tokens());
+            acc.push(' ');
+            acc
+        });
         format!("cargo q {commands}")
     }
 
@@ -354,9 +355,9 @@ mod tests {
 
     #[test]
     fn test_parse_many_empty_is_error() {
-        assert!(Routine::parse_many(Vec::<&str>::new()).is_err());
-        assert!(Routine::parse_many([""]).is_err());
-        assert!(Routine::parse_many(["   "]).is_err());
+        Routine::parse_many(Vec::<&str>::new()).unwrap_err();
+        Routine::parse_many([""]).unwrap_err();
+        Routine::parse_many(["   "]).unwrap_err();
     }
 
     #[cfg(unix)]

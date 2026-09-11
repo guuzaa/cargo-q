@@ -6,13 +6,13 @@
 //! - each child runs in its own process group so Ctrl-C can kill cargo *and*
 //!   the rustc/link grandchildren it started
 //!
-//! https://github.com/evmar/n2
+//! <https://github.com/evmar/n2>
 
 use std::ffi::{OsStr, OsString};
 use std::io::{self, IsTerminal, Read};
 use std::process::{Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, Once};
+use std::sync::{Mutex, Once, PoisonError};
 
 #[cfg(windows)]
 use windows_sys::Win32::Foundation::CloseHandle;
@@ -35,6 +35,7 @@ pub enum Termination {
 impl Termination {
     /// The exit code that reports this outcome to the shell.
     #[inline]
+    #[must_use]
     pub fn exit_code(self) -> i32 {
         match self {
             Termination::Success => 0,
@@ -60,6 +61,7 @@ pub fn was_interrupted() -> bool {
 /// toolchain is used for the spawned commands. Fall back to `cargo` on
 /// PATH when invoked without cargo (e.g. running the binary directly).
 #[inline]
+#[must_use]
 pub fn cargo_bin() -> OsString {
     std::env::var_os("CARGO").unwrap_or_else(|| OsString::from("cargo"))
 }
@@ -75,7 +77,7 @@ pub fn install_interrupt_handler() {
 
 fn handle_interrupt() {
     let already = INTERRUPTED.swap(true, Ordering::SeqCst);
-    let pids = PIDS.lock().unwrap_or_else(|e| e.into_inner());
+    let pids = PIDS.lock().unwrap_or_else(PoisonError::into_inner);
     for pid in pids.iter().copied() {
         kill_process_group(pid, already);
     }
@@ -87,7 +89,7 @@ struct PidGuard {
 
 impl Drop for PidGuard {
     fn drop(&mut self) {
-        let mut pids = PIDS.lock().unwrap_or_else(|e| e.into_inner());
+        let mut pids = PIDS.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(i) = pids.iter().position(|&p| p == self.pid) {
             pids.swap_remove(i);
         }
@@ -95,7 +97,9 @@ impl Drop for PidGuard {
 }
 
 fn register_pid(pid: u32) -> PidGuard {
-    PIDS.lock().unwrap_or_else(|e| e.into_inner()).push(pid);
+    PIDS.lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .push(pid);
     PidGuard { pid }
 }
 
@@ -148,7 +152,7 @@ pub fn run_command(
             match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => output_cb(&buf[..n]),
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
                 Err(e) => {
                     kill_process_group(pid, false);
                     let _ = child.wait();

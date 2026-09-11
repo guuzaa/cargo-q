@@ -14,12 +14,15 @@ struct Worker {
 }
 
 impl ThreadPool {
+    #[must_use]
     pub fn new(size: usize) -> ThreadPool {
         assert!(size > 0);
 
         let (sender, receiver) = mpsc::channel();
         let receiver = Arc::new(Mutex::new(receiver));
-        let workers: Vec<_> = (0..size).map(|_| Worker::new(receiver.clone())).collect();
+        let workers: Vec<_> = (0..size)
+            .map(|_| Worker::new(Arc::clone(&receiver)))
+            .collect();
 
         ThreadPool {
             workers,

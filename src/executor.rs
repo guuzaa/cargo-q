@@ -1,6 +1,6 @@
 use crate::process::Termination;
 use crate::routine::Routine;
-use crate::strategy::{ExecutionStrategy, ParallelStrategy, SequentialStrategy};
+use crate::strategy::{Parallel, Sequential, Strategy};
 use std::io;
 
 pub(crate) struct Executor {
@@ -20,9 +20,10 @@ impl Executor {
 
     /// Run the routines with the selected strategy.
     pub fn execute(&self) -> io::Result<Termination> {
-        let strategy: Box<dyn ExecutionStrategy> = match self.parallel {
-            true => Box::new(ParallelStrategy),
-            false => Box::new(SequentialStrategy),
+        let strategy: Box<dyn Strategy> = if self.parallel {
+            Box::new(Parallel)
+        } else {
+            Box::new(Sequential)
         };
 
         strategy.execute(&self.routines, self.verbose)
