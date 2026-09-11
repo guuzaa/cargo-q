@@ -8,7 +8,7 @@ mod color;
 mod dumb;
 mod fancy;
 
-pub(crate) use color::Colorful;
+pub(crate) use color::Colored;
 use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::Instant;

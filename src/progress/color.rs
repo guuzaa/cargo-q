@@ -1,7 +1,7 @@
 use std::fmt;
 use std::io::{self, IsTerminal};
 
-pub trait Colorful {
+pub trait Colored {
     fn red(self) -> ColoredString;
     fn green(self) -> ColoredString;
     fn yellow(self) -> ColoredString;
@@ -21,7 +21,7 @@ fn color_enabled() -> bool {
     io::stdout().is_terminal()
 }
 
-impl<T: fmt::Display> Colorful for T {
+impl<T: fmt::Display> Colored for T {
     fn red(self) -> ColoredString {
         if color_enabled() {
             ColoredString(format!("\x1b[31m{self}\x1b[0m"))

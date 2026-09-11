@@ -1,6 +1,6 @@
 //! Progress reporting for a "fancy" console, with progress bar etc.
 
-use super::{append_stream, print_summary, truncate, Colorful, Progress};
+use super::{append_stream, print_summary, truncate, Colored, Progress};
 use std::collections::VecDeque;
 use std::io::{self, IsTerminal, Write};
 use std::sync::{Arc, Condvar, Mutex};

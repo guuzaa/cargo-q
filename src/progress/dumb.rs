@@ -1,6 +1,6 @@
 //! Progress reporting for a "dumb" console, without any overprinting.
 
-use super::{append_stream, print_summary, Colorful, Progress};
+use super::{append_stream, print_summary, Colored, Progress};
 use std::io::Write;
 use std::sync::Mutex;
 use std::time::Instant;
