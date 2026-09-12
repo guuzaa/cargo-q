@@ -44,5 +44,5 @@ jobs:
       run: cargo test --verbose
     
     - name: Run clippy
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os != 'windows-latest'
       run: cargo clippy -- -D warnings
