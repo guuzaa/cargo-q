@@ -1,6 +1,6 @@
 [package]
 name = "cargo-q"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 rust-version = "1.78"
 description = "Run multiple Cargo commands sequentially or in parallel."

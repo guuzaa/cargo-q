@@ -4,7 +4,7 @@
 
 Run multiple Cargo commands sequentially or in parallel.
 
-[![usage](https://asciinema.org/a/1265027.svg)](https://asciinema.org/a/1265027)
+[![usage](https://asciinema.org/a/xQIwh2AUWQaCPV1b.svg)](https://asciinema.org/a/xQIwh2AUWQaCPV1b)
 
 ## Installation
 

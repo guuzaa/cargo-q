@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0] - 2026-09-12
+### Added
+- `-n/--dry-run` prints the commands that would run, one per line, and runs nothing. Splitting a command line into commands involves guesswork cargo-q cannot always get right, so this is how to check what an invocation means before it spawns anything (e.g. `cargo q --dry-run build --features test` shows that `test` became a second command).
+- `-k`/`--keep-going` runs the remaining commands after one fails, which was the previous behaviour.
+
+### Changed
+- **Breaking:** a failed command now stops the run, matching `&&` in a shell, instead of continuing through the rest of the list. The exit code is unchanged — still the first failure's code — and the summary counts what never started (`0 succeeded, 1 failed, 1 skipped`). Use `-k` to get the old behaviour.
+- In parallel mode, a failure skips the commands still queued; commands already running are always left to finish, since killing one would leave a half-written target directory behind. With no more commands than threads, everything has already started and nothing is skipped.
+
 ## [0.3.1] - 2026-09-10
 ### Fixed
 - Failed commands now exit with the child's status (`128 + signal` if killed by a signal) instead of always exiting 0, so `set -e`, `&&` chains, and CI can detect failures. `cargo q test` exits 101 when tests fail; Ctrl-C still exits 130.
