@@ -1,47 +1,33 @@
-use super::Strategy;
+use super::{run_one, Report, Strategy};
+use crate::executor::Options;
 use crate::process::{self, Termination};
-use crate::progress;
+use crate::progress::Progress;
 use crate::routine::Routine;
 use std::io;
+use std::sync::Arc;
 
 pub struct Sequential;
 
 impl Strategy for Sequential {
-    fn execute(&self, routines: &[Routine], verbose: bool) -> io::Result<Termination> {
-        let progress = progress::new(routines.len(), verbose);
-        let mut failure = None;
+    /// Run the routines one after another, stopping at the first failure
+    /// unless `--keep-going` was asked for.
+    fn execute(
+        &self,
+        routines: &[Routine],
+        progress: &Arc<dyn Progress>,
+        options: Options,
+    ) -> io::Result<Termination> {
+        let report = Report::default();
 
-        for (id, cmd) in routines.iter().enumerate() {
+        for (id, routine) in routines.iter().enumerate() {
             if process::was_interrupted() {
-                return Ok(Termination::Interrupted);
+                break;
             }
-
-            let cmd_str = cmd.to_string();
-            progress.task_started(id, &cmd_str);
-
-            match cmd.run(verbose, |data| progress.task_output(id, data)) {
-                Ok(Termination::Success) => {
-                    progress.task_finished(id, &cmd_str, true);
-                }
-                Ok(Termination::Failure(code)) => {
-                    failure.get_or_insert(code);
-                    progress.task_finished(id, &cmd_str, false);
-                }
-                Ok(Termination::Interrupted) => {
-                    progress.task_finished(id, &cmd_str, false);
-                    return Ok(Termination::Interrupted);
-                }
-                Err(e) => {
-                    progress.task_output(id, e.to_string().as_bytes());
-                    progress.task_finished(id, &cmd_str, false);
-                    return Err(e);
-                }
+            if !run_one(id, routine, progress.as_ref(), options, &report) {
+                break;
             }
         }
 
-        Ok(match failure {
-            Some(code) => Termination::Failure(code),
-            None => Termination::Success,
-        })
+        report.outcome()
     }
 }

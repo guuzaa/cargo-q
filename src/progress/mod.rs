@@ -1,8 +1,8 @@
 //! Command execution progress reporting.
 //!
 //! Mirrors n2's progress split: a "fancy" console overprints a live status
-//! when both stdin and stdout are terminals; otherwise a "dumb" console
-//! prints one line per command.
+//! when stdout is a terminal; otherwise a "dumb" console prints one line per
+//! command.
 
 mod color;
 mod dumb;

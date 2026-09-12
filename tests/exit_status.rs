@@ -1,6 +1,9 @@
-//! End-to-end checks that a failed command reaches the shell as a non-zero
-//! exit status, carrying the child's own code. cargo-q runs commands to
-//! report on them, so scripts and CI must be able to rely on the status.
+//! End-to-end checks on what cargo-q runs and what the shell sees.
+//!
+//! A failed command must reach the shell as a non-zero exit status carrying
+//! the child's own code — cargo-q runs commands to report on them, so scripts
+//! and CI must be able to rely on the status — and a failure must stop the
+//! rest of the list unless `--keep-going` says otherwise.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Output};
@@ -93,6 +96,54 @@ fn propagates_the_child_exit_code_in_parallel_mode() {
 #[test]
 fn successful_command_exits_zero() {
     assert!(cargo_q(&["locate-project", "--quiet"]).success());
+}
+
+/// A failure stops the run, and the summary accounts for what never started.
+#[test]
+fn stops_at_the_first_failure() {
+    let output = cargo_q_output_in(outside_a_package(), &["locate-project --quiet", "version"]);
+    assert_eq!(output.status.code(), Some(101), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1 skipped"), "{stdout}");
+}
+
+#[test]
+fn keep_going_runs_the_rest_of_the_list() {
+    let output = cargo_q_output_in(
+        outside_a_package(),
+        &["-k", "locate-project --quiet", "version"],
+    );
+    // The failure is still what the shell sees, even though the run finished.
+    assert_eq!(output.status.code(), Some(101), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("1 succeeded, 1 failed, 0 skipped"),
+        "{stdout}"
+    );
+}
+
+/// A dry run spawns nothing, so a command that would fail still exits zero.
+#[test]
+fn dry_run_prints_the_plan_without_running_anything() {
+    let output = cargo_q_output_in(
+        outside_a_package(),
+        &["--dry-run", "locate-project --quiet", "version"],
+    );
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("cargo locate-project --quiet"), "{stdout}");
+    assert!(stdout.contains("cargo version"), "{stdout}");
+}
+
+/// The parser cannot always tell an argument from a subcommand name, so a dry
+/// run is how to see that `--features test` grew a second command.
+#[test]
+fn dry_run_reveals_a_token_read_as_a_new_command() {
+    let output = cargo_q_output(&["--dry-run", "build", "--features", "test"]);
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("cargo build --features"), "{stdout}");
+    assert!(stdout.contains("cargo test"), "{stdout}");
 }
 
 #[test]

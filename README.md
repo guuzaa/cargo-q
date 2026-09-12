@@ -1,6 +1,8 @@
 # cargo-q
+[![Crates.io MSRV](https://img.shields.io/crates/msrv/cargo-q)](https://crates.io/crates/cargo-q)
+[![Apache 2.0](https://img.shields.io/badge/license-Apache-red.svg)](LICENSE)
 
-A Cargo subcommand for running multiple Cargo commands sequentially or in parallel.
+Run multiple Cargo commands sequentially or in parallel.
 
 [![usage](https://asciinema.org/a/1265027.svg)](https://asciinema.org/a/1265027)
 
@@ -12,10 +14,10 @@ cargo install cargo-q --locked
 
 ## Features
 
-- Run multiple Cargo commands sequentially
-- Commands are separated by spaces
-- Support parallel execution for commands (experimental)
-- Verbose mode for detailed output
+- Run multiple Cargo commands sequentially, separated by spaces
+- Stop at the first failure and exit with that command's code
+- Parallel execution (experimental)
+- Verbose mode
 
 ## Usage
 
@@ -28,26 +30,25 @@ cargo q check
 ### Run Multiple Commands
 
 ```bash
-# Run commands sequentially
 cargo q check test      # Runs check, then test
 ```
 
 ### Commands with Arguments
 
-Tokens that start with `-` are treated as arguments to the preceding command:
+Tokens starting with `-` are arguments to the preceding command:
 
 ```bash
 cargo q build -r test --no-run
 ```
 
-Quote a command when an argument does not start with `-`:
+Quote a command whose argument does not start with `-`:
 
 ```bash
 cargo q "test --features feature1"
 ```
 
-A token that does not start with `-` must name a cargo subcommand; otherwise
-cargo-q reports an error instead of guessing:
+Any other bare token must name a cargo subcommand; cargo-q errors instead of
+guessing:
 
 ```bash
 cargo q build --features feature1
@@ -56,7 +57,7 @@ cargo q build --features feature1
 # help: or attach the value: cargo q build --features=feature1
 ```
 
-The hints name the command you actually typed, so the fix can be pasted back:
+The hints echo the command you typed, so the fix can be pasted back:
 
 ```bash
 cargo q run -p oven
@@ -65,9 +66,9 @@ cargo q run -p oven
 # help: or attach the value: cargo q run -p=oven
 ```
 
-A bare token that *is* a cargo subcommand still starts a new command, even
-when you meant it as an argument. Feature names like `test` and default
-aliases like `t` collide this way:
+A bare token that *is* a subcommand still starts a new command, even when you
+meant it as an argument. Feature names like `test` and aliases like `t`
+collide this way:
 
 ```bash
 cargo q build --features test    # runs `cargo build --features` and `cargo test`
@@ -75,23 +76,61 @@ cargo q "build --features test"  # passes test as the feature
 cargo q build --features=test    # same
 ```
 
+### Dry Run
+
+`-n`/`--dry-run` shows how a command line was split, without running anything:
+
+```bash
+cargo q -n build --features test
+# 2 command(s), sequentially:
+#   cargo build --features
+#   cargo test
+```
+
+### Stopping on Failure
+
+cargo-q stops at the first failure, like `&&` in a shell, and exits with that
+command's own code:
+
+```bash
+cargo q clippy test    # clippy fails -> test is skipped
+```
+
+`-k`/`--keep-going` runs the whole list anyway; the exit code still reports the
+first failure:
+
+```bash
+cargo q -k fmt clippy test
+```
+
+In parallel mode only queued commands are skipped — one already running is left
+to finish.
+
 ### Parallel Execution (Experimental)
 
 > [!WARNING]
-> **Note:** Parallel execution is currently experimental and may not provide a performance improvement. Commands like `cargo check`, `cargo build`, and `cargo test` share the same target directory and lock it, so they will block each other while waiting for the lock. As a result, running these commands in parallel is not faster than running them sequentially.
+> Parallel execution may not be any faster. Commands like `cargo check`, `cargo build`, and `cargo test` share the same target directory and lock it, so they block each other instead of overlapping.
 
 ```bash
-# Run commands in parallel
-cargo q -p check test      # Run both commands in parallel
-cargo q --parallel check test   # Same as above
+cargo q -p check test            # Run both commands in parallel
+cargo q --parallel check test    # Same as above
 ```
 
 ### Verbose Output
 
 ```bash
-cargo q -v check test       # Show detailed output
-cargo q --verbose check test  # Same as above
+cargo q -v check test            # Show each command's output as it runs
+cargo q --verbose check test     # Same as above
 ```
+
+## Exit Codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | all commands succeeded |
+| child's code | the first command that failed (e.g. `101` from `cargo test`) |
+| `128 + signal` | that command was killed by a signal |
+| `130` | interrupted with Ctrl-C |
 
 ## License
 
