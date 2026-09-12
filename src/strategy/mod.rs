@@ -53,21 +53,20 @@ pub(crate) fn run_one(
     let cmd = routine.to_string();
     progress.task_started(id, &cmd);
 
-    let (success, proceed) = match routine.run(options.verbose, |data| {
-        progress.task_output(id, data);
-    }) {
-        Ok(Termination::Success) => (true, true),
-        Ok(Termination::Failure(code)) => {
-            report.record(Failure::Exit(code));
-            (false, options.keep_going)
-        }
-        Ok(Termination::Interrupted) => (false, false),
-        Err(e) => {
-            progress.task_output(id, e.to_string().as_bytes());
-            report.record(Failure::Spawn(e));
-            (false, false)
-        }
-    };
+    let (success, proceed) =
+        match routine.run(options.verbose, |data| progress.task_output(id, data)) {
+            Ok(Termination::Success) => (true, true),
+            Ok(Termination::Failure(code)) => {
+                report.record(Failure::Exit(code));
+                (false, options.keep_going)
+            }
+            Ok(Termination::Interrupted) => (false, false),
+            Err(e) => {
+                progress.task_output(id, e.to_string().as_bytes());
+                report.record(Failure::Spawn(e));
+                (false, false)
+            }
+        };
 
     progress.task_finished(id, &cmd, success);
     proceed
