@@ -27,6 +27,9 @@ pub struct Cli {
     commands: Vec<OsString>,
 
     /// Show each command's output as it runs
+    ///
+    /// Sequential only. Combined with `--parallel`, cargo-q warns and
+    /// ignores `--verbose` so the run stays quiet.
     #[arg(short, long)]
     pub verbose: bool,
 
@@ -34,6 +37,7 @@ pub struct Cli {
     ///
     /// Commands that share the target directory lock each other out, so
     /// `check`/`build`/`test` may not finish any sooner than in sequence.
+    /// `--verbose` is ignored in this mode; use sequential `-v` instead.
     #[arg(short, long)]
     pub parallel: bool,
 

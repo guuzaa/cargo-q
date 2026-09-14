@@ -1,6 +1,6 @@
 //! Progress reporting for a "fancy" console, with progress bar etc.
 
-use super::{append_stream, print_summary, truncate, Colored, Progress};
+use super::{print_summary, truncate, write_tail, Progress, Tail};
 use std::collections::VecDeque;
 use std::io::{self, IsTerminal, Write};
 use std::sync::{Arc, Condvar, Mutex};
@@ -22,6 +22,9 @@ struct Task {
 /// the console too.
 pub struct ConsoleProgress {
     state: Arc<Mutex<FancyState>>,
+    /// Per-command capture, locked independently of the UI state so a chunk
+    /// of cargo output does not contend with the progress-bar thread.
+    outputs: Vec<Mutex<Tail>>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
@@ -35,32 +38,29 @@ const UPDATE_DELAY: Duration = Duration::from_millis(50);
 const TIMEOUT_DELAY: Duration = Duration::from_millis(500);
 
 impl ConsoleProgress {
-    pub fn new(total: usize, verbose: bool) -> Self {
+    pub fn new(total: usize) -> Self {
         let dirty_cond = Arc::new(Condvar::new());
         let state = Arc::new(Mutex::new(FancyState {
             done: false,
             pending: Vec::new(),
             dirty: false,
             dirty_cond: Arc::clone(&dirty_cond),
-            verbose,
             total,
             done_count: 0,
             failed_count: 0,
             started_count: 0,
             tasks: VecDeque::new(),
-            outputs: vec![Vec::new(); total],
-            partials: vec![Vec::new(); total],
             start_time: Instant::now(),
         }));
 
         // Thread to debounce status updates -- waits a bit, then prints after
-        // any dirty state.
+        // any dirty state. Stdout writes happen without the state lock so a
+        // slow terminal does not stall cargo's pipe.
         let thread = std::thread::spawn({
             let state_lock = Arc::clone(&state);
             move || loop {
-                // Wait to be notified of a display update or timeout.
-                {
-                    let (state, _) = dirty_cond
+                let pending = {
+                    let (mut state, _) = dirty_cond
                         .wait_timeout_while(
                             state_lock.lock().unwrap(),
                             TIMEOUT_DELAY.checked_sub(UPDATE_DELAY).unwrap(),
@@ -68,11 +68,17 @@ impl ConsoleProgress {
                         )
                         .unwrap();
                     if state.done {
-                        let mut out = std::io::stdout();
-                        out.write_all(&state.pending).unwrap();
-                        out.flush().unwrap();
-                        break;
+                        Some(std::mem::take(&mut state.pending))
+                    } else {
+                        None
                     }
+                };
+
+                if let Some(pending) = pending {
+                    let mut out = std::io::stdout();
+                    out.write_all(&pending).unwrap();
+                    out.flush().unwrap();
+                    break;
                 }
 
                 // Delay a little bit in case more display updates come in.
@@ -80,12 +86,17 @@ impl ConsoleProgress {
                 // can drop the lock here while we sleep.
                 std::thread::sleep(UPDATE_DELAY);
 
-                state_lock.lock().unwrap().print_progress();
+                let cols = get_cols();
+                let frame = state_lock.lock().unwrap().take_frame(cols);
+                let mut out = std::io::stdout();
+                out.write_all(&frame).unwrap();
+                out.flush().unwrap();
             }
         });
 
         ConsoleProgress {
             state,
+            outputs: (0..total).map(|_| Mutex::new(Tail::new())).collect(),
             thread: Some(thread),
         }
     }
@@ -97,11 +108,28 @@ impl Progress for ConsoleProgress {
     }
 
     fn task_output(&self, id: usize, data: &[u8]) {
-        self.state.lock().unwrap().task_output(id, data);
+        if data.is_empty() {
+            return;
+        }
+        if let Some(buf) = self.outputs.get(id) {
+            buf.lock().unwrap().push(data);
+        }
     }
 
     fn task_finished(&self, id: usize, cmd: &str, success: bool) {
-        self.state.lock().unwrap().task_finished(id, cmd, success);
+        let captured = self.outputs.get(id).map(|buf| {
+            let mut buf = buf.lock().unwrap();
+            if success {
+                buf.clear();
+                None
+            } else {
+                Some(buf.take())
+            }
+        });
+        self.state
+            .lock()
+            .unwrap()
+            .task_finished(id, cmd, success, captured.flatten());
     }
 }
 
@@ -134,9 +162,6 @@ struct FancyState {
     dirty: bool,
     dirty_cond: Arc<Condvar>,
 
-    /// When set, `task_output` is printed live; otherwise it is buffered
-    /// and only dumped if the command fails.
-    verbose: bool,
     total: usize,
     done_count: usize,
     failed_count: usize,
@@ -144,11 +169,6 @@ struct FancyState {
     /// Commands that are currently executing.
     /// Pushed to as tasks are started, so it's always in order of age.
     tasks: VecDeque<Task>,
-    /// Captured merged output per command. Used when not verbose.
-    outputs: Vec<Vec<u8>>,
-    /// Incomplete line leftover from the last `task_output` chunk, per command.
-    /// Used when prefixing parallel output so a split line is not prefixed twice.
-    partials: Vec<Vec<u8>>,
     start_time: Instant,
 }
 
@@ -168,92 +188,23 @@ impl FancyState {
         self.dirty();
     }
 
-    fn task_output(&mut self, id: usize, data: &[u8]) {
-        if data.is_empty() {
-            return;
-        }
-        if !self.verbose {
-            if let Some(buf) = self.outputs.get_mut(id) {
-                buf.extend_from_slice(data);
-            }
-            return;
-        }
-        if self.total > 1 {
-            self.push_prefixed(id, data);
-        } else {
-            self.pending.extend_from_slice(data);
-        }
-        self.dirty();
-    }
-
-    fn task_finished(&mut self, id: usize, cmd: &str, success: bool) {
-        if self.verbose {
-            self.flush_partial(id, cmd);
-        }
+    fn task_finished(&mut self, id: usize, cmd: &str, success: bool, captured: Option<Tail>) {
         if let Some(pos) = self.tasks.iter().position(|t| t.id == id) {
             self.tasks.remove(pos);
         }
 
         if success {
             self.done_count += 1;
-            if let Some(buf) = self.outputs.get_mut(id) {
-                buf.clear();
-            }
             self.dirty();
             return;
         }
 
         self.failed_count += 1;
         let _ = writeln!(&mut self.pending, "failed: {cmd}");
-        if !self.verbose {
-            let output = self
-                .outputs
-                .get_mut(id)
-                .map(std::mem::take)
-                .unwrap_or_default();
-            append_stream(&mut self.pending, &output);
+        if let Some(tail) = captured {
+            write_tail(&mut self.pending, &tail);
         }
         self.dirty();
-    }
-
-    fn push_prefixed(&mut self, id: usize, data: &[u8]) {
-        let prefix = self
-            .tasks
-            .iter()
-            .find(|t| t.id == id)
-            .map(|t| t.message.clone())
-            .unwrap_or_default();
-
-        let Some(partial) = self.partials.get_mut(id) else {
-            return;
-        };
-        partial.extend_from_slice(data);
-        let mut leftover = std::mem::take(partial);
-        let mut start = 0;
-        for i in 0..leftover.len() {
-            if leftover[i] == b'\n' {
-                write_prefixed_line(&mut self.pending, &prefix, &leftover[start..=i]);
-                start = i + 1;
-            }
-        }
-        leftover.drain(..start);
-        self.partials[id] = leftover;
-    }
-
-    fn flush_partial(&mut self, id: usize, cmd: &str) {
-        let leftover = self
-            .partials
-            .get_mut(id)
-            .map(std::mem::take)
-            .unwrap_or_default();
-        if leftover.is_empty() {
-            return;
-        }
-        if self.total > 1 {
-            write_prefixed_line(&mut self.pending, cmd, &leftover);
-        } else {
-            self.pending.extend_from_slice(&leftover);
-        }
     }
 
     fn cleanup(&mut self) {
@@ -261,7 +212,9 @@ impl FancyState {
         self.dirty(); // let thread print final time
     }
 
-    fn print_progress(&mut self) {
+    /// Build the next progress frame and hand it back so the caller can write
+    /// it to stdout without holding the state lock.
+    fn take_frame(&mut self, max_cols: usize) -> Vec<u8> {
         let failed = self.failed_count;
         let completed = self.done_count + failed;
         let running = self.tasks.len();
@@ -282,7 +235,6 @@ impl FancyState {
         let _ = writeln!(buf, "{running} running");
         let mut lines = 1;
 
-        let max_cols = get_cols();
         let max_tasks = 8;
         let now = Instant::now();
         for task in self.tasks.iter().take(max_tasks) {
@@ -299,17 +251,13 @@ impl FancyState {
 
         // Move cursor up to the first printed line, for overprinting.
         let _ = write!(buf, "\x1b[{lines}A");
-        let mut out = std::io::stdout();
-        out.write_all(buf).unwrap();
-        out.flush().unwrap();
 
-        // Set up buf for next print.
+        let frame = std::mem::take(buf);
         // If the user hit ctl-c, it may have printed something on the line.
         // So \r to go to first column first, then clear anything below.
-        buf.clear();
         buf.extend_from_slice(b"\r\x1b[J");
-
         self.dirty = false;
+        frame
     }
 }
 
@@ -322,23 +270,10 @@ pub fn enabled() -> bool {
 /// True when the next write to `buf` starts at column 0.
 ///
 /// After the clear sequence (`\r\x1b[J`) the cursor is already at column 0,
-/// so the progress bar can be drawn immediately. A live output chunk that
-/// does not end in a newline would otherwise share a line with the bar.
+/// so the progress bar can be drawn immediately. Failure output that does
+/// not end in a newline would otherwise share a line with the bar.
 fn at_column_zero(buf: &[u8]) -> bool {
     buf.is_empty() || buf.ends_with(b"\n") || buf == b"\r\x1b[J"
-}
-
-/// Write one output line with a command prefix so parallel streams stay readable.
-fn write_prefixed_line(buf: &mut Vec<u8>, prefix: &str, line: &[u8]) {
-    let _ = write!(buf, "{}: ", truncate(prefix, 32).bold()).ok();
-    for &b in line {
-        if b != b'\r' {
-            buf.push(b);
-        }
-    }
-    if !line.ends_with(b"\n") {
-        buf.push(b'\n');
-    }
 }
 
 /// Format a task's status message to optionally include how long it has been running
@@ -458,16 +393,5 @@ mod tests {
         assert!(at_column_zero(b"\r\x1b[J"));
         assert!(at_column_zero(b"hello\n"));
         assert!(!at_column_zero(b"\r\x1b[Jhello"));
-    }
-
-    #[test]
-    fn prefixed_line_strips_carriage_return() {
-        let mut buf = Vec::new();
-        write_prefixed_line(&mut buf, "cargo test", b"foo\r\n");
-        let text = String::from_utf8_lossy(&buf);
-        assert!(text.contains("cargo test"));
-        assert!(text.contains("foo"));
-        assert!(text.ends_with('\n'));
-        assert!(!text.contains('\r'));
     }
 }

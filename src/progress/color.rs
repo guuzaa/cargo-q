@@ -1,5 +1,6 @@
 use std::fmt;
 use std::io::{self, IsTerminal};
+use std::sync::OnceLock;
 
 pub trait Colored {
     fn red(self) -> ColoredString;
@@ -18,7 +19,8 @@ impl fmt::Display for ColoredString {
 
 #[inline]
 fn color_enabled() -> bool {
-    io::stdout().is_terminal()
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(|| io::stdout().is_terminal())
 }
 
 impl<T: fmt::Display> Colored for T {

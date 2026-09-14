@@ -1,5 +1,6 @@
 use crate::process::{self, Termination};
 use std::io;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 /// The first thing that went wrong, kept for the final report.
@@ -17,6 +18,7 @@ pub(crate) enum Failure {
 #[derive(Default)]
 pub(crate) struct Report {
     failure: Mutex<Option<Failure>>,
+    failed: AtomicBool,
 }
 
 impl Report {
@@ -29,12 +31,13 @@ impl Report {
         let mut slot = self.lock();
         if slot.is_none() {
             *slot = Some(failure);
+            self.failed.store(true, Ordering::Release);
         }
     }
 
     /// Whether a command has already failed.
     pub(crate) fn failed(&self) -> bool {
-        self.lock().is_some()
+        self.failed.load(Ordering::Acquire)
     }
 
     /// The outcome to hand back to the caller.
