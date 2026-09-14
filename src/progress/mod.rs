@@ -2,13 +2,16 @@
 //!
 //! Mirrors n2's progress split: a "fancy" console overprints a live status
 //! when stdout is a terminal; otherwise a "dumb" console prints one line per
-//! command.
+//! command. Sequential `--verbose` always uses the dumb console so cargo can
+//! own the TTY.
 
 mod color;
 mod dumb;
 mod fancy;
+mod output;
 
 pub(crate) use color::Colored;
+pub(crate) use output::{write_tail, Tail};
 use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::Instant;
@@ -27,16 +30,24 @@ pub trait Progress: Send + Sync {
 
 /// Build a progress reporter for `total` commands.
 ///
-/// Fancy overprinting is only used on an interactive terminal and when
-/// commands do not inherit stdio (`verbose` is false); otherwise cargo
-/// output would collide with the status display.
+/// Fancy overprinting is used on an interactive terminal, except when
+/// `--verbose`: those commands inherit the TTY so cargo can draw its own
+/// progress, and a status overlay would collide with it. Parallel
+/// `--verbose` is rejected before this is called, so `verbose` here is
+/// sequential only.
 #[must_use]
 pub fn new(total: usize, verbose: bool) -> Arc<dyn Progress> {
-    if fancy::enabled() {
-        Arc::new(fancy::ConsoleProgress::new(total, verbose))
+    if want_fancy(fancy::enabled(), verbose) {
+        Arc::new(fancy::ConsoleProgress::new(total))
     } else {
         Arc::new(dumb::ConsoleProgress::new(total, verbose))
     }
+}
+
+/// `--verbose` inherits the TTY; overlaying a status bar on cargo's own
+/// progress would collide.
+fn want_fancy(tty: bool, verbose: bool) -> bool {
+    tty && !verbose
 }
 
 /// Append captured streams to `buf`.
@@ -91,6 +102,20 @@ pub(crate) fn print_summary(success: usize, started: usize, total: usize, start_
 #[cfg(test)]
 mod tests {
     use super::append_stream;
+
+    #[test]
+    fn sequential_verbose_skips_fancy_even_on_a_tty() {
+        assert!(
+            !super::want_fancy(true, true),
+            "sequential -v: cargo owns the TTY"
+        );
+        assert!(
+            super::want_fancy(true, false),
+            "quiet still overlays on a TTY"
+        );
+        assert!(!super::want_fancy(false, false));
+        assert!(!super::want_fancy(false, true));
+    }
 
     #[test]
     fn captured_output_stdout_then_stderr() {

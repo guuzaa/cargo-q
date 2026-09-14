@@ -1,36 +1,35 @@
 //! Progress reporting for a "dumb" console, without any overprinting.
 
-use super::{append_stream, print_summary, Colored, Progress};
-use std::io::Write;
+use super::{append_stream, print_summary, write_tail, Colored, Progress, Tail};
+use std::io::{self, Write};
 use std::sync::Mutex;
 use std::time::Instant;
 
 /// Progress implementation for "dumb" console, without any overprinting.
 pub struct ConsoleProgress {
+    verbose: bool,
     state: Mutex<DumbState>,
+    outputs: Vec<Mutex<Tail>>,
 }
 
 struct DumbState {
-    verbose: bool,
     total: usize,
     success_count: usize,
     started_count: usize,
     start_time: Instant,
-    /// Captured merged output per command. Used when not verbose.
-    outputs: Vec<Vec<u8>>,
 }
 
 impl ConsoleProgress {
     pub fn new(total: usize, verbose: bool) -> Self {
         Self {
+            verbose,
             state: Mutex::new(DumbState {
-                verbose,
                 total,
                 success_count: 0,
                 started_count: 0,
                 start_time: Instant::now(),
-                outputs: vec![Vec::new(); total],
             }),
+            outputs: (0..total).map(|_| Mutex::new(Tail::new())).collect(),
         }
     }
 }
@@ -50,42 +49,40 @@ impl Progress for ConsoleProgress {
         if data.is_empty() {
             return;
         }
-        let mut state = self.state.lock().unwrap();
-        if state.verbose {
-            let mut out = std::io::stdout();
+        if self.verbose {
+            let mut out = io::stdout().lock();
             let _ = out.write_all(data);
             let _ = out.flush();
             return;
         }
-        if let Some(buf) = state.outputs.get_mut(id) {
-            buf.extend_from_slice(data);
+        if let Some(buf) = self.outputs.get(id) {
+            buf.lock().unwrap().push(data);
         }
     }
 
     fn task_finished(&self, id: usize, cmd: &str, success: bool) {
-        let mut state = self.state.lock().unwrap();
         if success {
-            state.success_count += 1;
-            if let Some(buf) = state.outputs.get_mut(id) {
-                buf.clear();
+            self.state.lock().unwrap().success_count += 1;
+            if let Some(buf) = self.outputs.get(id) {
+                buf.lock().unwrap().clear();
             }
             return;
         }
 
-        let output = state
-            .outputs
-            .get_mut(id)
-            .map(std::mem::take)
-            .unwrap_or_default();
-        if state.verbose {
+        if self.verbose {
             println!("failed: {cmd}");
             return;
         }
 
+        let tail = self
+            .outputs
+            .get(id)
+            .map(|buf| buf.lock().unwrap().take())
+            .unwrap_or_else(Tail::new);
         let head = format!("failed: {cmd}");
-        let mut buf = Vec::with_capacity(head.len() + output.len());
+        let mut buf = Vec::with_capacity(head.len() + 32);
         append_stream(&mut buf, head.as_bytes());
-        append_stream(&mut buf, &output);
+        write_tail(&mut buf, &tail);
         print!("{}", String::from_utf8_lossy(&buf));
     }
 }

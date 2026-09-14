@@ -123,6 +123,8 @@ cargo q -v check test            # Show each command's output as it runs
 cargo q --verbose check test     # Same as above
 ```
 
+`--verbose` is sequential only. With `--parallel`, cargo-q warns and runs quietly.
+
 ## Exit Codes
 
 | Code | Meaning |

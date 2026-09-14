@@ -188,10 +188,12 @@ impl Routine {
     /// routine was parsed, so execution strategies never need to know
     /// anything about which binary is being invoked.
     pub fn run(&self, verbose: bool, output_cb: impl FnMut(&[u8])) -> io::Result<Termination> {
-        let args: Vec<_> = std::iter::once(self.name.as_os_str())
-            .chain(self.args.iter().map(OsString::as_os_str))
-            .collect();
-        process::run_command(&self.bin, args, verbose, output_cb)
+        process::run_command(
+            &self.bin,
+            std::iter::once(self.name.as_os_str()).chain(self.args.iter().map(OsString::as_os_str)),
+            verbose,
+            output_cb,
+        )
     }
 }
 
