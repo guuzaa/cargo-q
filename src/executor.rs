@@ -29,8 +29,8 @@ impl Options {
     fn supported(self) -> Self {
         if self.verbose && self.parallel {
             eprintln!(
-                "warning: --verbose is not supported with --parallel; running quietly\n\
-                 help: use sequential -v to watch each command's output"
+                "warning: -v/--verbose is not supported with -p/--parallel; running quietly\n\
+                 help: use -v/--verbose only to watch each command's output"
             );
             Self {
                 verbose: false,

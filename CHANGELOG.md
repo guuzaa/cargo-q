@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.0] - 2026-09-19
+### Changed
+- --verbose with --parallel now warns and stays quiet
+- sequential --verbose still inherits the TTY but uses dump progress
+
 ## [0.4.0] - 2026-09-12
 ### Added
 - `-n/--dry-run` prints the commands that would run, one per line, and runs nothing. Splitting a command line into commands involves guesswork cargo-q cannot always get right, so this is how to check what an invocation means before it spawns anything (e.g. `cargo q --dry-run build --features test` shows that `test` became a second command).
