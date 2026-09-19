@@ -11,7 +11,7 @@ mod fancy;
 mod output;
 
 pub(crate) use color::Colored;
-pub(crate) use output::{write_tail, Tail};
+pub(crate) use output::Tail;
 use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::Instant;

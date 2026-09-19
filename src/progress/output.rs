@@ -62,14 +62,14 @@ impl Tail {
     pub(crate) fn take(&mut self) -> Self {
         std::mem::replace(self, Self::with_cap(self.cap))
     }
-}
 
-/// Append a captured tail to `dst`, with a marker if the head was dropped.
-pub(crate) fn write_tail(dst: &mut Vec<u8>, tail: &Tail) {
-    if tail.truncated {
-        dst.extend_from_slice(TRUNCATED_MARK);
+    /// Append this captured tail to `dst`, with a marker if the head was dropped.
+    pub(crate) fn append_to(&self, dst: &mut Vec<u8>) {
+        if self.truncated {
+            dst.extend_from_slice(TRUNCATED_MARK);
+        }
+        append_stream(dst, &self.data);
     }
-    append_stream(dst, &tail.data);
 }
 
 #[cfg(test)]
@@ -118,7 +118,7 @@ mod tests {
         let mut tail = super::Tail::with_cap(4);
         tail.push(b"abcdefgh");
         let mut buf = Vec::new();
-        super::write_tail(&mut buf, &tail);
+        tail.append_to(&mut buf);
         assert_eq!(buf, b"[... output truncated ...]\nefgh\n");
     }
 }

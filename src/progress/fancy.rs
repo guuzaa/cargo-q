@@ -1,6 +1,6 @@
 //! Progress reporting for a "fancy" console, with progress bar etc.
 
-use super::{print_summary, truncate, write_tail, Progress, Tail};
+use super::{print_summary, truncate, Progress, Tail};
 use std::collections::VecDeque;
 use std::io::{self, IsTerminal, Write};
 use std::sync::{Arc, Condvar, Mutex};
@@ -202,7 +202,7 @@ impl FancyState {
         self.failed_count += 1;
         let _ = writeln!(&mut self.pending, "failed: {cmd}");
         if let Some(tail) = captured {
-            write_tail(&mut self.pending, &tail);
+            tail.append_to(&mut self.pending);
         }
         self.dirty();
     }

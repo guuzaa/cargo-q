@@ -1,6 +1,6 @@
 //! Progress reporting for a "dumb" console, without any overprinting.
 
-use super::{append_stream, print_summary, write_tail, Colored, Progress, Tail};
+use super::{append_stream, print_summary, Colored, Progress, Tail};
 use std::io::{self, Write};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -82,7 +82,7 @@ impl Progress for ConsoleProgress {
         let head = format!("failed: {cmd}");
         let mut buf = Vec::with_capacity(head.len() + 32);
         append_stream(&mut buf, head.as_bytes());
-        write_tail(&mut buf, &tail);
+        tail.append_to(&mut buf);
         print!("{}", String::from_utf8_lossy(&buf));
     }
 }
