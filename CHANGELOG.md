@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.1] - 2026-10-09
+### Fixed
+- SIGTERM and SIGHUP now kill the child cargo process group, and cargo-q exits 130 (`ctrlc` `termination` feature)
+
+### Changed
+- Require ctrlc 3.5
+- Exclude `tests/` from the published crate
+- Strip symbols from release binaries
+
 ## [0.5.0] - 2026-09-19
 ### Changed
 - --verbose with --parallel now warns and stays quiet
