@@ -1,6 +1,6 @@
 [package]
 name = "cargo-q"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 rust-version = "1.78"
 description = "Run multiple Cargo commands sequentially or in parallel."
@@ -31,3 +31,4 @@ windows-sys = { version = "0.61", features = [
 [profile.release]
 opt-level = 2
 lto = "thin"
+strip = "symbols"
