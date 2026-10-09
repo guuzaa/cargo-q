@@ -215,3 +215,103 @@ fn interrupt_during_name_resolution_exits_interrupted() {
     assert_eq!(output.status.code(), Some(130), "{stderr}");
     assert!(!stderr.contains("is not a cargo subcommand"), "{stderr}");
 }
+
+/// SIGTERM must take the same path as Ctrl-C: the handler kills the cargo
+/// process group, and cargo-q exits 130 (`Termination::Interrupted`) instead
+/// of leaving that child running.
+#[cfg(unix)]
+#[test]
+fn sigterm_kills_the_child_and_exits_interrupted() {
+    use std::time::{Duration, Instant};
+
+    let dir = OutsidePackage::new();
+    // Long enough that a missed signal cannot look like a clean exit.
+    let pid_file = stalling_cargo(&dir.0, 30);
+
+    let mut cargo_q = Command::new(env!("CARGO_BIN_EXE_cargo-q"))
+        .args(["version"])
+        .env("CARGO", dir.0.join("stalling-cargo"))
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("run cargo-q");
+
+    let started = Instant::now();
+    while !pid_file.exists() {
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "child cargo never started"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let worker_pid: libc::pid_t = std::fs::read_to_string(&pid_file)
+        .expect("read child pid")
+        .trim()
+        .parse()
+        .expect("child pid");
+    // The child is in its own process group, so a failed test must kill it
+    // itself. Disarmed only after we have seen it die.
+    let mut reap_worker = KillOnDrop(Some(worker_pid));
+
+    let signalled = unsafe { libc::kill(cargo_q.id() as libc::pid_t, libc::SIGTERM) };
+    assert_eq!(signalled, 0, "send SIGTERM to cargo-q");
+
+    let status = wait_for_exit(&mut cargo_q, Duration::from_secs(5));
+    let stderr = {
+        let mut buf = String::new();
+        if let Some(mut err) = cargo_q.stderr.take() {
+            use std::io::Read;
+            err.read_to_string(&mut buf).expect("read stderr");
+        }
+        buf
+    };
+    assert_eq!(status.code(), Some(130), "{stderr}");
+    assert!(
+        !process_alive(worker_pid),
+        "child cargo pid {worker_pid} still running after SIGTERM"
+    );
+    reap_worker.0 = None;
+}
+
+/// Kills `pid` on drop so a stalled `sleep` cannot outlive a failed test.
+#[cfg(unix)]
+struct KillOnDrop(Option<libc::pid_t>);
+
+#[cfg(unix)]
+impl Drop for KillOnDrop {
+    fn drop(&mut self) {
+        if let Some(pid) = self.0.take() {
+            unsafe {
+                libc::kill(pid, libc::SIGKILL);
+            }
+        }
+    }
+}
+
+#[cfg(unix)]
+fn wait_for_exit(child: &mut std::process::Child, timeout: std::time::Duration) -> ExitStatus {
+    use std::time::Instant;
+
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait().expect("wait for cargo-q") {
+            return status;
+        }
+        if started.elapsed() > timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("cargo-q did not exit within {timeout:?}");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+#[cfg(unix)]
+fn process_alive(pid: libc::pid_t) -> bool {
+    let rc = unsafe { libc::kill(pid, 0) };
+    if rc == 0 {
+        return true;
+    }
+    // EPERM means the process exists and is owned by someone else.
+    std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+}
