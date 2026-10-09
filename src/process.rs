@@ -66,7 +66,8 @@ pub fn cargo_bin() -> OsString {
     std::env::var_os("CARGO").unwrap_or_else(|| OsString::from("cargo"))
 }
 
-/// Catch SIGINT/SIGTERM (and Windows Ctrl-C) and kill registered process groups.
+/// Catch SIGINT, SIGTERM, and SIGHUP (and Windows Ctrl-C) and kill registered
+/// process groups.
 ///
 /// Safe to call more than once; only the first call installs the handler.
 pub fn install_interrupt_handler() {
