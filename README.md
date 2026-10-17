@@ -1,6 +1,7 @@
 # cargo-q
-[![Crates.io MSRV](https://img.shields.io/crates/msrv/cargo-q)](https://crates.io/crates/cargo-q)
-[![Apache 2.0](https://img.shields.io/badge/license-Apache-red.svg)](LICENSE)
+[![Crates.io MSRV](https://img.shields.io/crates/msrv/cargo-q?label=MSRV&logo=rust)](https://crates.io/crates/cargo-q)
+[![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue?label=License&logo=Apache)](LICENSE)
+[![Crates.io Total Downloads](https://img.shields.io/crates/d/cargo-q?label=Downloads)](https://crates.io/crates/cargo-q)
 
 Run multiple Cargo commands sequentially or in parallel.
 
