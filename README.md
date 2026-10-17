@@ -1,10 +1,20 @@
-# cargo-q
-[![crates.io](https://img.shields.io/crates/v/cargo-q?logo=rust)](https://crates.io/crates/cargo-q)
-[![Crates.io MSRV](https://img.shields.io/crates/msrv/cargo-q?label=MSRV&logo=rust)](https://crates.io/crates/cargo-q)
-[![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue?label=License&logo=Apache)](LICENSE)
-[![Crates.io Total Downloads](https://img.shields.io/crates/d/cargo-q?label=Downloads)](https://crates.io/crates/cargo-q)
+<div align="center">
 
-Run multiple Cargo commands sequentially or in parallel.
+<h1>cargo-q</h1>
+
+<p><strong>Run Cargo only once.</strong></p>
+
+<p>
+  <a href="https://crates.io/crates/cargo-q"><img src="https://img.shields.io/crates/v/cargo-q?logo=rust" alt="crates.io"></a>
+  <a href="https://crates.io/crates/cargo-q"><img src="https://img.shields.io/crates/msrv/cargo-q?label=MSRV&amp;logo=rust" alt="MSRV"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?label=License&amp;logo=Apache" alt="License"></a>
+  <a href="https://crates.io/crates/cargo-q"><img src="https://img.shields.io/crates/d/cargo-q?label=Downloads" alt="Downloads"></a>
+</p>
+
+</div>
+
+Run multiple Cargo commands sequentially or in parallel, stopping at the first
+failure and returning its exit code.
 
 [![usage](https://asciinema.org/a/xQIwh2AUWQaCPV1b.svg)](https://asciinema.org/a/xQIwh2AUWQaCPV1b)
 
@@ -16,42 +26,36 @@ cargo install cargo-q --locked
 
 ## Features
 
-- Run multiple Cargo commands sequentially, separated by spaces
+- Run several Cargo commands in one invocation
 - Stop at the first failure and exit with that command's code
 - Parallel execution (experimental)
-- Verbose mode
-- Plain output with `--no-fancy`, even on a terminal
+- Verbose mode, plus plain output for logs and agents
 
 ## Usage
 
-### Run a Single Command
+### Basics
 
 ```bash
-cargo q check
+cargo q check             # one command
+cargo q check test        # check, then test
 ```
 
-### Run Multiple Commands
+A token starting with `-` is an argument to the preceding command:
 
 ```bash
-cargo q check test      # Runs check, then test
+cargo q build -r test --no-run    # cargo build -r, then cargo test --no-run
 ```
 
-### Commands with Arguments
-
-Tokens starting with `-` are arguments to the preceding command:
-
-```bash
-cargo q build -r test --no-run
-```
-
-Quote a command whose argument does not start with `-`:
+After the first command, any other bare token must name a Cargo subcommand;
+cargo-q errors instead of guessing. Quote a command whose argument does not
+start with `-`, or attach the value with `=`:
 
 ```bash
 cargo q "test --features feature1"
+cargo q build --features=feature1
 ```
 
-Any other bare token must name a cargo subcommand; cargo-q errors instead of
-guessing:
+Anything else is rejected with a hint that can be pasted back:
 
 ```bash
 cargo q build --features feature1
@@ -60,22 +64,12 @@ cargo q build --features feature1
 # help: or attach the value: cargo q build --features=feature1
 ```
 
-The hints echo the command you typed, so the fix can be pasted back:
+A known subcommand name still starts a new command, even when you meant it as
+an argument. Feature names and aliases like `test` collide this way:
 
 ```bash
-cargo q run -p oven
-# error: 'oven' is not a cargo subcommand
-# help: quote the whole command: cargo q "run -p oven"
-# help: or attach the value: cargo q run -p=oven
-```
-
-A bare token that *is* a subcommand still starts a new command, even when you
-meant it as an argument. Feature names like `test` and aliases like `t`
-collide this way:
-
-```bash
-cargo q build --features test    # runs `cargo build --features` and `cargo test`
-cargo q "build --features test"  # passes test as the feature
+cargo q build --features test    # cargo build --features, then cargo test
+cargo q "build --features test"  # feature named test
 cargo q build --features=test    # same
 ```
 
@@ -92,47 +86,88 @@ cargo q -n build --features test
 
 ### Stopping on Failure
 
-cargo-q stops at the first failure, like `&&` in a shell, and exits with that
-command's own code:
+cargo-q stops at the first failure, like `&&`, and exits with that command's
+code:
 
 ```bash
 cargo q clippy test    # clippy fails -> test is skipped
 ```
 
-`-k`/`--keep-going` runs the whole list anyway; the exit code still reports the
-first failure:
+`-k`/`--keep-going` runs the rest anyway; the exit code still reports the first
+failure:
 
 ```bash
 cargo q -k fmt clippy test
 ```
 
-In parallel mode only queued commands are skipped — one already running is left
+In parallel mode, only queued commands are skipped; one already running is left
 to finish.
 
 ### Parallel Execution (Experimental)
 
 > [!WARNING]
-> Parallel execution may not be any faster. Commands like `cargo check`, `cargo build`, and `cargo test` share the same target directory and lock it, so they block each other instead of overlapping.
+> Parallel execution may not be faster. `cargo check`, `build`, and `test` share the target directory and lock it, so they block each other instead of overlapping.
 
 ```bash
-cargo q -p check test            # Run both commands in parallel
-cargo q --parallel check test    # Same as above
+cargo q -p check test
+cargo q --parallel check test    # same
 ```
 
-### Verbose Output
+### Verbose and Plain Output
+
+`-v`/`--verbose` streams each command's output as it runs:
 
 ```bash
-cargo q -v check test            # Show each command's output as it runs
-cargo q --verbose check test     # Same as above
+cargo q -v check test
 ```
 
-`--verbose` is sequential only. With `--parallel`, cargo-q warns and runs quietly.
+It is sequential only; with `--parallel`, cargo-q warns and runs quietly.
 
-### Plain Output
+`--no-fancy` prints one line per command and no ANSI color, even on a terminal.
+Use it for output that is captured rather than read: a log file, a CI console,
+or an agent driving the build through a pseudo-terminal.
 
-`--no-fancy` prints one line per command and no ANSI color, even on a
-terminal — for output that is captured rather than read by a person: an agent
-driving the build through a pseudo-terminal, a log file, a CI console.
+## For AI Agents
+
+<details>
+<summary>Guide for agents driving cargo-q through a pipe or pseudo-terminal</summary>
+
+In a pipe cargo-q is already quiet: one line per command, no ANSI, and
+diagnostics only for failures.
+
+```bash
+cargo q fmt clippy check test
+```
+
+```text
+[1/4] cargo fmt
+[2/4] cargo clippy
+[3/4] cargo check
+[4/4] cargo test
+Finished 4 command(s) in 0.23s
+```
+
+- **Use the exit code.** `0` means every command passed. Otherwise you get the
+  first child's own code (`101` from `cargo test`, `128 + signal` if killed,
+  `130` on Ctrl-C), and later commands are skipped as with `&&`. Do not parse
+  output to detect failure.
+- **Failures are compact.** Each failed command prints
+  `failed: cargo clippy (exit 101)` followed by the tail of its output (about
+  128 KiB). Output from successful commands is discarded.
+- **Check the split when in doubt.** A bare token starts a new command. Run
+  `cargo q -n ...` first, quote the whole command
+  (`cargo q "build --features test"`), or attach the value
+  (`cargo q build --features=test`).
+- **Pipes are fine.** Use `set -o pipefail` (or your shell's equivalent),
+  otherwise `cargo q ... | tail` returns `tail`'s status.
+- **Stay sequential.** `--parallel` rarely helps because Cargo commands lock
+  the shared target directory. Add `-v` only when a failure's tail is not
+  enough.
+
+On a pseudo-terminal, add `--no-fancy` to drop the overprinting status display
+and its color.
+
+</details>
 
 ## Exit Codes
 

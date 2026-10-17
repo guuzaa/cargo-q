@@ -8,7 +8,7 @@ use std::io;
 #[derive(Parser, Debug)]
 #[command(name = "cargo-q")]
 #[command(version)]
-#[command(about = "Run multiple Cargo commands sequentially or in parallel.")]
+#[command(about = "Run Cargo only once.")]
 #[command(author)]
 pub struct Cli {
     /// Commands to execute
