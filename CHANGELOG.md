@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0] - 2026-10-17
+### Added
+- `--no-fancy` prints plain output — one line per command and no ANSI color — even on a terminal, for output that is captured rather than read by a person: an agent driving the build through a pseudo-terminal, a log file, a CI console. It also stops cargo-q from forcing color on the captured child output it reprints, since `CARGO_TERM_COLOR` is now only set for a console that will draw on a terminal.
+
+### Changed
+- A failed command's line now carries its exit code, in both the plain and the overprinting console: `failed: cargo clippy (exit 101)`. With `--keep-going` several commands can fail while only the first one's code reaches the shell, so each failure line reports its own.
+- **Breaking (library):** `Routine::run` takes a `color` argument, and `Progress::task_finished` takes the child's exit code (`None` when there is no status to report: the command could not be spawned, or cargo-q itself was interrupted).
+- The slogan is now `Run Cargo only once.`, and the crate description reads `Run Cargo only once: many Cargo commands, just one invocation.`
+
 ## [0.5.1] - 2026-10-09
 ### Fixed
 - SIGTERM and SIGHUP now kill the child cargo process group, and cargo-q exits 130 (`ctrlc` `termination` feature)
