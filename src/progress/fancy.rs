@@ -1,6 +1,6 @@
 //! Progress reporting for a "fancy" console, with progress bar etc.
 
-use super::{print_summary, truncate, Progress, Tail};
+use super::{failure_line, print_summary, truncate, Progress, Tail};
 use std::collections::VecDeque;
 use std::io::{self, IsTerminal, Write};
 use std::sync::{Arc, Condvar, Mutex};
@@ -116,7 +116,7 @@ impl Progress for ConsoleProgress {
         }
     }
 
-    fn task_finished(&self, id: usize, cmd: &str, success: bool) {
+    fn task_finished(&self, id: usize, cmd: &str, success: bool, code: Option<i32>) {
         let captured = self.outputs.get(id).map(|buf| {
             let mut buf = buf.lock().unwrap();
             if success {
@@ -129,7 +129,7 @@ impl Progress for ConsoleProgress {
         self.state
             .lock()
             .unwrap()
-            .task_finished(id, cmd, success, captured.flatten());
+            .task_finished(id, cmd, success, code, captured.flatten());
     }
 }
 
@@ -188,7 +188,14 @@ impl FancyState {
         self.dirty();
     }
 
-    fn task_finished(&mut self, id: usize, cmd: &str, success: bool, captured: Option<Tail>) {
+    fn task_finished(
+        &mut self,
+        id: usize,
+        cmd: &str,
+        success: bool,
+        code: Option<i32>,
+        captured: Option<Tail>,
+    ) {
         if let Some(pos) = self.tasks.iter().position(|t| t.id == id) {
             self.tasks.remove(pos);
         }
@@ -200,7 +207,7 @@ impl FancyState {
         }
 
         self.failed_count += 1;
-        let _ = writeln!(&mut self.pending, "failed: {cmd}");
+        let _ = writeln!(&mut self.pending, "{}", failure_line(cmd, code));
         if let Some(tail) = captured {
             tail.append_to(&mut self.pending);
         }
@@ -238,7 +245,7 @@ impl FancyState {
         let max_tasks = 8;
         let now = Instant::now();
         for task in self.tasks.iter().take(max_tasks) {
-            let delta = now.duration_since(task.start).as_secs() as usize;
+            let delta = now.duration_since(task.start).as_secs();
             let _ = writeln!(buf, "{}", task_message(&task.message, delta, max_cols));
             lines += 1;
         }
@@ -278,7 +285,7 @@ fn at_column_zero(buf: &[u8]) -> bool {
 
 /// Format a task's status message to optionally include how long it has been running
 /// and also to fit within a maximum number of terminal columns.
-fn task_message(message: &str, seconds: usize, max_cols: usize) -> String {
+fn task_message(message: &str, seconds: u64, max_cols: usize) -> String {
     let time_note = if seconds > 2 {
         format!(" ({seconds}s)")
     } else {

@@ -187,11 +187,20 @@ impl Routine {
     /// Run this routine. The executable was resolved once, when the
     /// routine was parsed, so execution strategies never need to know
     /// anything about which binary is being invoked.
-    pub fn run(&self, verbose: bool, output_cb: impl FnMut(&[u8])) -> io::Result<Termination> {
+    ///
+    /// `color` asks the child to colorize output that is being captured for a
+    /// terminal to show later (see [`crate::process::run_command`]).
+    pub fn run(
+        &self,
+        verbose: bool,
+        color: bool,
+        output_cb: impl FnMut(&[u8]),
+    ) -> io::Result<Termination> {
         process::run_command(
             &self.bin,
             std::iter::once(self.name.as_os_str()).chain(self.args.iter().map(OsString::as_os_str)),
             verbose,
+            color,
             output_cb,
         )
     }

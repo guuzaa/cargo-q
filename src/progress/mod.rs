@@ -10,6 +10,7 @@ mod dumb;
 mod fancy;
 mod output;
 
+use crate::executor::Options;
 pub(crate) use color::Colored;
 pub(crate) use output::Tail;
 use std::io::{self, Write};
@@ -25,7 +26,11 @@ pub trait Progress: Send + Sync {
     fn task_output(&self, id: usize, data: &[u8]);
 
     /// Called when a command completes.
-    fn task_finished(&self, id: usize, cmd: &str, success: bool);
+    ///
+    /// `code` is the child's exit status when it exited non-zero on its own.
+    /// It is `None` when there is no status to report: the command could not
+    /// be spawned, or cargo-q itself was interrupted.
+    fn task_finished(&self, id: usize, cmd: &str, success: bool, code: Option<i32>);
 }
 
 /// Build a progress reporter for `total` commands.
@@ -34,20 +39,36 @@ pub trait Progress: Send + Sync {
 /// `--verbose`: those commands inherit the TTY so cargo can draw its own
 /// progress, and a status overlay would collide with it. Parallel
 /// `--verbose` is rejected before this is called, so `verbose` here is
-/// sequential only.
+/// sequential only. `--no-fancy` rules the fancy console out altogether.
 #[must_use]
-pub fn new(total: usize, verbose: bool) -> Arc<dyn Progress> {
-    if want_fancy(fancy::enabled(), verbose) {
+pub fn new(total: usize, options: Options) -> Arc<dyn Progress> {
+    let tty = fancy::enabled();
+    // Color belongs to a person reading a terminal; `--no-fancy` opts out of
+    // it together with the overprinting display.
+    color::set_enabled(tty && options.fancy);
+    if want_fancy(tty, options.verbose, options.fancy) {
         Arc::new(fancy::ConsoleProgress::new(total))
     } else {
-        Arc::new(dumb::ConsoleProgress::new(total, verbose))
+        Arc::new(dumb::ConsoleProgress::new(total, options.verbose))
     }
 }
 
 /// `--verbose` inherits the TTY; overlaying a status bar on cargo's own
 /// progress would collide.
-fn want_fancy(tty: bool, verbose: bool) -> bool {
-    tty && !verbose
+fn want_fancy(tty: bool, verbose: bool, fancy: bool) -> bool {
+    tty && !verbose && fancy
+}
+
+/// The line that introduces a failed command's captured output.
+///
+/// The exit code belongs in the line, not only in the process status: with
+/// `--keep-going` several commands can fail, and only the first one's code
+/// reaches the shell.
+pub(crate) fn failure_line(cmd: &str, code: Option<i32>) -> String {
+    match code {
+        Some(code) => format!("failed: {cmd} (exit {code})"),
+        None => format!("failed: {cmd}"),
+    }
 }
 
 /// Append captured streams to `buf`.
@@ -101,20 +122,32 @@ pub(crate) fn print_summary(success: usize, started: usize, total: usize, start_
 
 #[cfg(test)]
 mod tests {
-    use super::append_stream;
+    use super::{append_stream, failure_line};
 
     #[test]
     fn sequential_verbose_skips_fancy_even_on_a_tty() {
         assert!(
-            !super::want_fancy(true, true),
+            !super::want_fancy(true, true, true),
             "sequential -v: cargo owns the TTY"
         );
         assert!(
-            super::want_fancy(true, false),
+            super::want_fancy(true, false, true),
             "quiet still overlays on a TTY"
         );
-        assert!(!super::want_fancy(false, false));
-        assert!(!super::want_fancy(false, true));
+        assert!(!super::want_fancy(false, false, true));
+        assert!(!super::want_fancy(true, false, false));
+        assert!(!super::want_fancy(true, true, false));
+    }
+
+    /// The code is what makes several failures in one `--keep-going` run
+    /// distinguishable, since only the first reaches the shell.
+    #[test]
+    fn failure_line_carries_the_exit_code() {
+        assert_eq!(
+            failure_line("cargo clippy", Some(101)),
+            "failed: cargo clippy (exit 101)"
+        );
+        assert_eq!(failure_line("cargo clippy", None), "failed: cargo clippy");
     }
 
     #[test]

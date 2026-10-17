@@ -55,6 +55,14 @@ pub struct Cli {
     /// a new command rather than an argument.
     #[arg(short = 'n', long)]
     pub dry_run: bool,
+
+    /// Print plain output, without the overprinting status display
+    ///
+    /// Keeps one line per command and no ANSI color even on a terminal, for
+    /// output that is captured rather than read by a person: an agent driving
+    /// the build through a pseudo-terminal, a log file, a CI console.
+    #[arg(long)]
+    pub no_fancy: bool,
 }
 
 impl Cli {
@@ -92,6 +100,7 @@ impl Cli {
             parallel: self.parallel,
             keep_going: self.keep_going,
             dry_run: self.dry_run,
+            fancy: !self.no_fancy,
         };
         Executor::new(routines, options).execute()
     }
@@ -151,5 +160,14 @@ mod tests {
         let cli = Cli::parse_from(["cargo-q", "check", "--dry-run"]);
         assert!(!cli.dry_run);
         assert_eq!(cli.commands, ["check", "--dry-run"].map(OsString::from));
+    }
+
+    #[test]
+    fn no_fancy_is_accepted() {
+        let cli = Cli::parse_from(["cargo-q", "--no-fancy", "check"]);
+        assert!(cli.no_fancy);
+
+        let cli = Cli::parse_from(["cargo-q", "check"]);
+        assert!(!cli.no_fancy, "the overprinting console is the default");
     }
 }

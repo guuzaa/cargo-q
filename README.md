@@ -1,4 +1,5 @@
 # cargo-q
+[![crates.io](https://img.shields.io/crates/v/cargo-q?logo=rust)](https://crates.io/crates/cargo-q)
 [![Crates.io MSRV](https://img.shields.io/crates/msrv/cargo-q?label=MSRV&logo=rust)](https://crates.io/crates/cargo-q)
 [![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue?label=License&logo=Apache)](LICENSE)
 [![Crates.io Total Downloads](https://img.shields.io/crates/d/cargo-q?label=Downloads)](https://crates.io/crates/cargo-q)
@@ -19,6 +20,7 @@ cargo install cargo-q --locked
 - Stop at the first failure and exit with that command's code
 - Parallel execution (experimental)
 - Verbose mode
+- Plain output with `--no-fancy`, even on a terminal
 
 ## Usage
 
@@ -125,6 +127,12 @@ cargo q --verbose check test     # Same as above
 ```
 
 `--verbose` is sequential only. With `--parallel`, cargo-q warns and runs quietly.
+
+### Plain Output
+
+`--no-fancy` prints one line per command and no ANSI color, even on a
+terminal — for output that is captured rather than read by a person: an agent
+driving the build through a pseudo-terminal, a log file, a CI console.
 
 ## Exit Codes
 

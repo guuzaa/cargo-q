@@ -53,21 +53,24 @@ pub(crate) fn run_one(
     let cmd = routine.to_string();
     progress.task_started(id, &cmd);
 
-    let (success, proceed) =
-        match routine.run(options.verbose, |data| progress.task_output(id, data)) {
-            Ok(Termination::Success) => (true, true),
-            Ok(Termination::Failure(code)) => {
-                report.record(Failure::Exit(code));
-                (false, options.keep_going)
-            }
-            Ok(Termination::Interrupted) => (false, false),
-            Err(e) => {
-                progress.task_output(id, e.to_string().as_bytes());
-                report.record(Failure::Spawn(e));
-                (false, false)
-            }
-        };
+    // The exit code travels with the report: the process status only carries
+    // the first failure's, and with `--keep-going` there can be several.
+    let (success, proceed, code) = match routine.run(options.verbose, options.fancy, |data| {
+        progress.task_output(id, data);
+    }) {
+        Ok(Termination::Success) => (true, true, None),
+        Ok(Termination::Failure(code)) => {
+            report.record(Failure::Exit(code));
+            (false, options.keep_going, Some(code))
+        }
+        Ok(Termination::Interrupted) => (false, false, None),
+        Err(e) => {
+            progress.task_output(id, e.to_string().as_bytes());
+            report.record(Failure::Spawn(e));
+            (false, false, None)
+        }
+    };
 
-    progress.task_finished(id, &cmd, success);
+    progress.task_finished(id, &cmd, success, code);
     proceed
 }

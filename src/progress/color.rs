@@ -17,10 +17,22 @@ impl fmt::Display for ColoredString {
     }
 }
 
+/// Whether output may carry ANSI color.
+///
+/// Decided once, by the progress reporter, which knows whether a console is
+/// going to draw the output on a terminal. `--no-fancy` asks for plain
+/// output, so it turns color off for cargo-q's own status lines as well, not
+/// only for the captured output it reprints.
+static COLOR: OnceLock<bool> = OnceLock::new();
+
+/// Record whether output may be colorized. The first call wins.
+pub(crate) fn set_enabled(enabled: bool) {
+    let _ = COLOR.set(enabled);
+}
+
 #[inline]
 fn color_enabled() -> bool {
-    static ENABLED: OnceLock<bool> = OnceLock::new();
-    *ENABLED.get_or_init(|| io::stdout().is_terminal())
+    *COLOR.get_or_init(|| io::stdout().is_terminal())
 }
 
 impl<T: fmt::Display> Colored for T {

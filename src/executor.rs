@@ -21,6 +21,9 @@ pub struct Options {
     pub keep_going: bool,
     /// Print the commands that would run, and run nothing.
     pub dry_run: bool,
+    /// Allow the overprinting "fancy" console, and the colored captured
+    /// output that goes with it, on a terminal.
+    pub fancy: bool,
 }
 
 impl Options {
@@ -63,7 +66,7 @@ impl Executor {
         // The reporter prints the run's summary when dropped, so it is owned
         // here: it outlives the strategy and is gone before the outcome
         // reaches `main`, which may print an error of its own.
-        let progress = progress::new(self.routines.len(), options.verbose);
+        let progress = progress::new(self.routines.len(), options);
         if options.parallel {
             Parallel.execute(&self.routines, &progress, options)
         } else {

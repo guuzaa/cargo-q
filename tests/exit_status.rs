@@ -122,6 +122,44 @@ fn keep_going_runs_the_rest_of_the_list() {
     );
 }
 
+/// A failure reports its exit code on the line that introduces it.
+#[test]
+fn failure_reports_its_exit_code() {
+    let output = cargo_q_output_in(outside_a_package(), &["locate-project"]);
+    assert_eq!(output.status.code(), Some(101), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("failed: cargo locate-project (exit 101)"),
+        "{stdout}"
+    );
+}
+
+/// With `--keep-going` several commands can fail, but only the first one's
+/// code reaches the shell, so each failure line carries its own.
+#[test]
+fn keep_going_labels_every_failure_with_its_exit_code() {
+    let output = cargo_q_output_in(
+        outside_a_package(),
+        &[
+            "-k",
+            "locate-project --quiet",
+            "metadata --quiet",
+            "version",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(101), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(
+        stdout.matches("(exit 101)").count(),
+        2,
+        "both failures carry their own code: {stdout}"
+    );
+    assert!(
+        stdout.contains("1 succeeded, 2 failed, 0 skipped"),
+        "{stdout}"
+    );
+}
+
 /// A dry run spawns nothing, so a command that would fail still exits zero.
 #[test]
 fn dry_run_prints_the_plan_without_running_anything() {

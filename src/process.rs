@@ -108,10 +108,17 @@ fn register_pid(pid: u32) -> PidGuard {
 ///
 /// When `verbose` is set, the child inherits this process's stdio and
 /// `output_cb` is not used.
+///
+/// When `color` is set, a child writing to a pipe is told to colorize anyway:
+/// the output is captured rather than shown as it arrives, and the console
+/// that reprints it later is drawing on a terminal, where color is what cargo
+/// would have used on its own. A plain console, or a pipe all the way through,
+/// leaves cargo to detect for itself.
 pub fn run_command(
     program: impl AsRef<OsStr>,
     args: impl IntoIterator<Item = impl AsRef<OsStr>>,
     verbose: bool,
+    color: bool,
     mut output_cb: impl FnMut(&[u8]),
 ) -> io::Result<Termination> {
     if was_interrupted() {
@@ -129,7 +136,7 @@ pub fn run_command(
         None
     } else {
         let (reader, writer) = os_pipe::pipe()?;
-        if io::stdout().is_terminal() && std::env::var_os("CARGO_TERM_COLOR").is_none() {
+        if color && io::stdout().is_terminal() && std::env::var_os("CARGO_TERM_COLOR").is_none() {
             cmd.env("CARGO_TERM_COLOR", "always");
         }
         cmd.stdin(Stdio::null())
@@ -270,8 +277,10 @@ mod tests {
     fn run_shell(script: &str) -> (Termination, Vec<u8>) {
         let (program, args) = shell_command(script);
         let mut output = Vec::new();
-        let term = run_command(program, args, false, |buf| output.extend_from_slice(buf))
-            .expect("spawn shell command");
+        let term = run_command(program, args, false, false, |buf| {
+            output.extend_from_slice(buf)
+        })
+        .expect("spawn shell command");
         (term, output)
     }
 

@@ -1,6 +1,6 @@
 //! Progress reporting for a "dumb" console, without any overprinting.
 
-use super::{append_stream, print_summary, Colored, Progress, Tail};
+use super::{append_stream, failure_line, print_summary, Colored, Progress, Tail};
 use std::io::{self, Write};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -60,7 +60,7 @@ impl Progress for ConsoleProgress {
         }
     }
 
-    fn task_finished(&self, id: usize, cmd: &str, success: bool) {
+    fn task_finished(&self, id: usize, cmd: &str, success: bool, code: Option<i32>) {
         if success {
             self.state.lock().unwrap().success_count += 1;
             if let Some(buf) = self.outputs.get(id) {
@@ -77,9 +77,8 @@ impl Progress for ConsoleProgress {
         let tail = self
             .outputs
             .get(id)
-            .map(|buf| buf.lock().unwrap().take())
-            .unwrap_or_else(Tail::new);
-        let head = format!("failed: {cmd}");
+            .map_or_else(Tail::new, |buf| buf.lock().unwrap().take());
+        let head = failure_line(cmd, code);
         let mut buf = Vec::with_capacity(head.len() + 32);
         append_stream(&mut buf, head.as_bytes());
         tail.append_to(&mut buf);
@@ -121,20 +120,20 @@ mod tests {
         assert_eq!(progress.total(), 4);
 
         progress.task_started(0, "check");
-        progress.task_finished(0, "check", true);
+        progress.task_finished(0, "check", true, None);
         assert_eq!(progress.success_count(), 1);
 
         progress.task_started(1, "test");
-        progress.task_finished(1, "test", true);
+        progress.task_finished(1, "test", true, None);
         assert_eq!(progress.success_count(), 2);
 
         progress.task_started(2, "run");
-        progress.task_finished(2, "run", true);
+        progress.task_finished(2, "run", true, None);
         assert_eq!(progress.success_count(), 3);
 
         progress.task_started(3, "fmt");
         progress.task_output(3, b"error");
-        progress.task_finished(3, "fmt", false);
+        progress.task_finished(3, "fmt", false, Some(101));
         assert_eq!(progress.success_count(), 3);
     }
 }
