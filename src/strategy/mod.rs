@@ -55,9 +55,8 @@ pub(crate) fn run_one(
 
     // The exit code travels with the report: the process status only carries
     // the first failure's, and with `--keep-going` there can be several.
-    let (success, proceed, code) = match routine.run(options.verbose, options.fancy, |data| {
-        progress.task_output(id, data);
-    }) {
+    let on_output = |data: &[u8]| progress.task_output(id, data);
+    let (success, proceed, code) = match routine.run(options.verbose, options.fancy, on_output) {
         Ok(Termination::Success) => (true, true, None),
         Ok(Termination::Failure(code)) => {
             report.record(Failure::Exit(code));

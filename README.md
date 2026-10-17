@@ -6,7 +6,7 @@
 
 <p>
   <a href="https://crates.io/crates/cargo-q"><img src="https://img.shields.io/crates/v/cargo-q?logo=rust" alt="crates.io"></a>
-  <a href="https://crates.io/crates/cargo-q"><img src="https://img.shields.io/crates/msrv/cargo-q?label=MSRV&amp;logo=rust" alt="MSRV"></a>
+  <a href="https://versionlog.com/rust/1.78/"><img src="https://img.shields.io/crates/msrv/cargo-q?label=MSRV&amp;logo=rust" alt="MSRV"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?label=License&amp;logo=Apache" alt="License"></a>
   <a href="https://crates.io/crates/cargo-q"><img src="https://img.shields.io/crates/d/cargo-q?label=Downloads" alt="Downloads"></a>
 </p>
