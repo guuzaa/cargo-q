@@ -2,7 +2,7 @@
 name = "cargo-q"
 version = "0.6.0"
 edition = "2021"
-rust-version = "1.78"
+rust-version = "1.75"
 description = "Run Cargo only once: many Cargo commands, just one invocation."
 keywords = ["cargo", "subcommand", "plugin"]
 categories = ["command-line-utilities", "development-tools::cargo-plugins"]

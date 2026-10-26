@@ -29,7 +29,7 @@ fn exit_code(term: Termination) -> ExitCode {
 mod tests {
     use super::*;
 
-    /// `ExitCode: PartialEq` is 1.81+; MSRV is 1.78, so compare Debug.
+    /// `ExitCode: PartialEq` is 1.81+; MSRV is 1.75, so compare Debug.
     fn assert_code(term: Termination, expected: ExitCode) {
         assert_eq!(format!("{:?}", exit_code(term)), format!("{:?}", expected));
     }
