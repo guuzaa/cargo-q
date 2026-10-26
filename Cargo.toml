@@ -14,7 +14,7 @@ exclude = [".github", ".vscode", ".gitignore", "CHANGELOG.md", "tests"]
 documentation = "https://docs.rs/cargo-q"
 
 [dependencies]
-clap = { version = "4.5.26", features = ["derive"] }
+lexopt = "0.3.2"
 ctrlc = { version = "3.5", features = ["termination"] }
 os_pipe = "1.2"
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+### Fixed
+- A short option that is given a value (`-p=1`) is reported as the mistake it is — `unexpected value '1' for '-p' found; no more were expected` — like the long form already was, instead of quietly becoming a command.
+
+### Changed
+- clap is replaced with lexopt. The command line is parsed the same way: the help text, the error messages, and the exit codes are unchanged, and an argument that is not valid UTF-8 still reaches cargo untouched. The binary is about 40% smaller, and the dependency tree is down to a single crate.
+- **Breaking (library):** `Cli` no longer implements `clap::Parser`, so `Cli::parse_from` is gone. `Cli::parse` and `Cli::run` are unchanged.
+
 ## [0.6.0] - 2026-10-17
 ### Added
 - `--no-fancy` prints plain output — one line per command and no ANSI color — even on a terminal, for output that is captured rather than read by a person: an agent driving the build through a pseudo-terminal, a log file, a CI console. It also stops cargo-q from forcing color on the captured child output it reprints, since `CARGO_TERM_COLOR` is now only set for a console that will draw on a terminal.
