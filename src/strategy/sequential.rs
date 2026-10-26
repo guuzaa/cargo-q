@@ -1,6 +1,6 @@
-use super::{run_one, Report, Strategy};
+use super::{run_list, Report, Strategy};
 use crate::executor::Options;
-use crate::process::{self, Termination};
+use crate::process::Termination;
 use crate::progress::Progress;
 use crate::routine::Routine;
 use std::io;
@@ -18,16 +18,7 @@ impl Strategy for Sequential {
         options: Options,
     ) -> io::Result<Termination> {
         let report = Report::default();
-
-        for (id, routine) in routines.iter().enumerate() {
-            if process::was_interrupted() {
-                break;
-            }
-            if !run_one(id, routine, progress.as_ref(), options, &report) {
-                break;
-            }
-        }
-
+        run_list(routines, progress.as_ref(), options, &report, 0);
         report.outcome()
     }
 }

@@ -1,12 +1,14 @@
 mod parallel;
+mod repeat;
 mod report;
 mod sequential;
 
 pub use parallel::Parallel;
+pub use repeat::Repeat;
 pub use sequential::Sequential;
 
 use crate::executor::Options;
-use crate::process::Termination;
+use crate::process::{self, Termination};
 use crate::progress::Progress;
 use crate::routine::Routine;
 use report::{Failure, Report};
@@ -29,13 +31,40 @@ pub trait Strategy {
     /// failed command into a non-zero exit status.
     ///
     /// A strategy decides only *when* each routine runs; reporting progress
-    /// and deciding whether to keep going are shared (see [`run_one`]).
+    /// and deciding whether to keep going are shared (see [`run_one`] and
+    /// [`run_list`]).
     fn execute(
         &self,
         routines: &[Routine],
         progress: &Arc<dyn Progress>,
         options: Options,
     ) -> io::Result<Termination>;
+}
+
+/// Run the routines one after another.
+///
+/// `offset` is the progress slot of the first routine, so a list that is
+/// run more than once keeps every run in its own slot.
+///
+/// Returns whether the caller may run more routines: a failure without
+/// `--keep-going`, an interrupt, or a command that could not be started
+/// ends the run.
+pub(crate) fn run_list(
+    routines: &[Routine],
+    progress: &dyn Progress,
+    options: Options,
+    report: &Report,
+    offset: usize,
+) -> bool {
+    for (i, routine) in routines.iter().enumerate() {
+        if process::was_interrupted() {
+            return false;
+        }
+        if !run_one(offset + i, routine, progress, options, report) {
+            return false;
+        }
+    }
+    true
 }
 
 /// Run one routine, reporting progress and recording the first failure.

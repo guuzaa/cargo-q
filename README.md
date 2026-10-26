@@ -29,6 +29,7 @@ cargo install cargo-q --locked
 - Run several Cargo commands in one invocation
 - Stop at the first failure and exit with that command's code
 - Parallel execution (experimental)
+- Repeat a whole list of commands as often as you like
 - Verbose mode, plus plain output for logs and agents
 
 ## Usage
@@ -83,6 +84,31 @@ cargo q -n build --features test
 #   cargo build --features
 #   cargo test
 ```
+
+### Repeating a Run
+
+`--repeat <N>` runs the whole list N times over. A round is the whole list,
+in the order the commands were given:
+
+```bash
+cargo q --repeat 3 check test    # check, test, check, test, check, test
+```
+
+A failure ends the run, so the later rounds never start. `-k`/`--keep-going`
+runs every round anyway, and the exit code still reports the first failure.
+
+With `-k`, every command runs once per round even when an earlier one failed,
+so a failure costs the whole list N times over:
+
+```bash
+cargo q -k --repeat 3 check test    # check fails -> test still runs 3 times
+```
+
+`--repeat` repeats the list, not the command that failed: a single command
+cannot be retried on its own.
+
+The rounds run one after another, so `--repeat` cannot be combined with
+`--parallel`.
 
 ### Stopping on Failure
 

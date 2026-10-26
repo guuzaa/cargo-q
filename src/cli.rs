@@ -46,6 +46,8 @@ pub struct Cli {
     /// By default cargo-q stops at the first failure, like `&&` in a shell.
     /// In parallel mode only queued commands are skipped; one already running
     /// is left to finish.
+    ///
+    /// With `--repeat`, the later rounds run as well.
     #[arg(short, long)]
     pub keep_going: bool,
 
@@ -63,6 +65,37 @@ pub struct Cli {
     /// the build through a pseudo-terminal, a log file, a CI console.
     #[arg(long)]
     pub no_fancy: bool,
+
+    /// Run the whole list of commands this many times
+    ///
+    /// A round is the whole list, in the order the commands were given, so
+    /// `--repeat 3 check test` runs `check test` three times over.
+    ///
+    /// Without it the list runs once.
+    ///
+    /// A failure ends the run, so the later rounds never start. With
+    /// `--keep-going` every round runs anyway, and every command runs once
+    /// per round even when an earlier one failed.
+    ///
+    /// The rounds run one after another, so this cannot be combined with
+    /// `--parallel`.
+    #[arg(long, value_name = "N", value_parser = repeat_count,
+          conflicts_with = "parallel")]
+    pub repeat: Option<usize>,
+}
+
+/// The number of rounds to run.
+///
+/// Zero rounds would run nothing at all, so it is rejected rather than
+/// quietly turning into a successful no-op.
+fn repeat_count(value: &str) -> Result<usize, String> {
+    let count: usize = value
+        .parse()
+        .map_err(|_| format!("`{value}` is not a number of rounds"))?;
+    if count == 0 {
+        return Err("a run needs at least one round".to_string());
+    }
+    Ok(count)
 }
 
 impl Cli {
@@ -101,6 +134,7 @@ impl Cli {
             keep_going: self.keep_going,
             dry_run: self.dry_run,
             fancy: !self.no_fancy,
+            repeat: self.repeat.unwrap_or(1),
         };
         Executor::new(routines, options).execute()
     }
@@ -169,5 +203,49 @@ mod tests {
 
         let cli = Cli::parse_from(["cargo-q", "check"]);
         assert!(!cli.no_fancy, "the overprinting console is the default");
+    }
+
+    #[test]
+    fn repeat_is_absent_by_default() {
+        let cli = Cli::parse_from(["cargo-q", "check"]);
+        assert_eq!(cli.repeat, None);
+    }
+
+    #[test]
+    fn repeat_is_accepted_before_the_commands() {
+        let cli = Cli::parse_from(["cargo-q", "--repeat", "3", "check", "test"]);
+        assert_eq!(cli.repeat, Some(3));
+        assert_eq!(cli.commands, ["check", "test"].map(OsString::from));
+
+        let cli = Cli::parse_from(["cargo-q", "--repeat=3", "check"]);
+        assert_eq!(cli.repeat, Some(3));
+    }
+
+    /// Zero rounds would run nothing at all, which is not what asking for
+    /// a repeat means.
+    #[test]
+    fn repeat_rejects_zero_rounds() {
+        let err = Cli::try_parse_from(["cargo-q", "--repeat", "0", "check"]).unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ValueValidation);
+    }
+
+    /// The rounds run one after another, so there is nothing for
+    /// `--parallel` to do.
+    #[test]
+    fn repeat_conflicts_with_parallel() {
+        let err = Cli::try_parse_from(["cargo-q", "--repeat", "3", "-p", "check"]).unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+
+        // The default is not a conflict: `--parallel` alone still works.
+        let cli = Cli::parse_from(["cargo-q", "-p", "check"]);
+        assert!(cli.parallel);
+        assert_eq!(cli.repeat, None);
+    }
+
+    #[test]
+    fn a_repeat_after_a_command_is_not_a_cargo_q_flag() {
+        let cli = Cli::parse_from(["cargo-q", "check", "--repeat", "3"]);
+        assert_eq!(cli.repeat, None);
+        assert_eq!(cli.commands, ["check", "--repeat", "3"].map(OsString::from));
     }
 }

@@ -192,6 +192,63 @@ fn unknown_bare_token_exits_nonzero() {
     assert!(stderr.contains("is not a cargo subcommand"), "{stderr}");
 }
 
+/// A round is the whole list, so every command runs once per round.
+#[test]
+fn repeat_runs_the_whole_list_once_per_round() {
+    let output = cargo_q_output(&["--repeat", "3", "version"]);
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.matches("cargo version").count(), 3, "{stdout}");
+}
+
+/// A failure ends the run, so the later rounds never start.
+#[test]
+fn a_failure_stops_the_later_rounds() {
+    let output = cargo_q_output_in(
+        outside_a_package(),
+        &["--repeat", "3", "locate-project --quiet", "version"],
+    );
+    assert_eq!(output.status.code(), Some(101), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.matches("cargo version").count(), 0, "{stdout}");
+    // The rounds that never ran are part of the plan, so they are skipped.
+    assert!(stdout.contains("5 skipped"), "{stdout}");
+}
+
+/// `--keep-going` runs the rest of the list, and the later rounds too.
+#[test]
+fn keep_going_runs_every_round() {
+    let output = cargo_q_output_in(
+        outside_a_package(),
+        &["-k", "--repeat", "3", "locate-project --quiet", "version"],
+    );
+    // The failure is still what the shell sees, even though the run finished.
+    assert_eq!(output.status.code(), Some(101), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.matches("cargo version").count(), 3, "{stdout}");
+}
+
+/// The rounds run one after another, so there is nothing for `--parallel`
+/// to do.
+#[test]
+fn repeat_and_parallel_are_mutually_exclusive() {
+    let output = cargo_q_output(&["--repeat", "3", "-p", "version"]);
+    assert!(!output.status.success(), "{output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("cannot be used with"), "{stderr}");
+}
+
+/// A dry run shows how many rounds the list would go through.
+#[test]
+fn dry_run_shows_the_rounds() {
+    let output = cargo_q_output(&["--repeat", "3", "--dry-run", "check", "test"]);
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2 command(s) x 3 rounds"), "{stdout}");
+    assert!(stdout.contains("cargo check"), "{stdout}");
+    assert!(stdout.contains("cargo test"), "{stdout}");
+}
+
 /// Install a `cargo` wrapper that records its pid and then stalls by replacing
 /// itself with `sleep`, so cargo-q stays blocked inside name resolution for
 /// `seconds`. `exec` keeps the pid and drops the shell, whose SIGINT handling

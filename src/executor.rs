@@ -1,14 +1,14 @@
 use crate::process::Termination;
 use crate::progress;
 use crate::routine::Routine;
-use crate::strategy::{Parallel, Sequential, Strategy};
+use crate::strategy::{Parallel, Repeat, Sequential, Strategy};
 use std::io::{self, Write};
 
 /// How a list of routines should be run.
 ///
 /// Grouped into one value so that adding a knob does not add another `bool`
 /// to every layer between the CLI and a strategy.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct Options {
     /// Let commands inherit this process's stdio instead of capturing it.
     ///
@@ -24,6 +24,25 @@ pub struct Options {
     /// Allow the overprinting "fancy" console, and the colored captured
     /// output that goes with it, on a terminal.
     pub fancy: bool,
+    /// Run the whole list of commands this many times.
+    ///
+    /// One means a single pass, which is what every run does without
+    /// `--repeat`. The rounds run one after another, so this cannot be
+    /// combined with `parallel`.
+    pub repeat: usize,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            verbose: false,
+            parallel: false,
+            keep_going: false,
+            dry_run: false,
+            fancy: true,
+            repeat: 1,
+        }
+    }
 }
 
 impl Options {
@@ -66,12 +85,22 @@ impl Executor {
         // The reporter prints the run's summary when dropped, so it is owned
         // here: it outlives the strategy and is gone before the outcome
         // reaches `main`, which may print an error of its own.
-        let progress = progress::new(self.routines.len(), options);
-        if options.parallel {
+        let progress = progress::new(self.total(options), options);
+        if options.repeat > 1 {
+            Repeat.execute(&self.routines, &progress, options)
+        } else if options.parallel {
             Parallel.execute(&self.routines, &progress, options)
         } else {
             Sequential.execute(&self.routines, &progress, options)
         }
+    }
+
+    /// How many commands the run starts in total.
+    ///
+    /// Every round runs the whole list, so a repeated run starts each
+    /// command once per round.
+    fn total(&self, options: Options) -> usize {
+        self.routines.len() * options.repeat.max(1)
     }
 
     /// Print the commands that would run, one per line.
@@ -87,10 +116,19 @@ impl Executor {
         } else {
             "sequentially"
         };
+        let repeat = self.options.repeat.max(1);
 
         let stdout = io::stdout();
         let mut out = stdout.lock();
-        writeln!(out, "{} command(s), {mode}:", self.routines.len())?;
+        if repeat > 1 {
+            writeln!(
+                out,
+                "{} command(s) x {repeat} rounds, {mode}:",
+                self.routines.len()
+            )?;
+        } else {
+            writeln!(out, "{} command(s), {mode}:", self.routines.len())?;
+        }
         for routine in &self.routines {
             writeln!(out, "  {routine}")?;
         }
@@ -134,5 +172,10 @@ mod tests {
         .supported();
         assert!(!options.verbose);
         assert!(options.parallel);
+    }
+
+    #[test]
+    fn a_single_round_is_the_default() {
+        assert_eq!(Options::default().repeat, 1);
     }
 }
