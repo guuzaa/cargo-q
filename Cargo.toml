@@ -32,3 +32,4 @@ windows-sys = { version = "0.61", features = [
 opt-level = 2
 lto = "thin"
 strip = "symbols"
+codegen-units = 1
