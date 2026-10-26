@@ -18,7 +18,7 @@ impl Strategy for Sequential {
         options: Options,
     ) -> io::Result<Termination> {
         let report = Report::default();
-        run_list(routines, progress.as_ref(), options, &report, 0);
+        run_list(routines, progress.as_ref(), options, &report);
         report.outcome()
     }
 }

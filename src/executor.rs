@@ -28,8 +28,10 @@ pub struct Options {
     ///
     /// One means a single pass, which is what every run does without
     /// `--repeat`. The rounds run one after another, so this cannot be
-    /// combined with `parallel`.
-    pub repeat: usize,
+    /// combined with `parallel`: the executor rejects that, and so does the
+    /// command line. The count is a `u32`, which is more rounds than any
+    /// run sits through.
+    pub repeat: u32,
 }
 
 impl Default for Options {
@@ -77,6 +79,17 @@ impl Executor {
     /// Run the routines with the selected strategy.
     pub fn execute(&self) -> io::Result<Termination> {
         let options = self.options.supported();
+
+        // The rounds of a repeated run go one after another, so there is
+        // nothing for `--parallel` to do. The command line rejects the
+        // combination before it gets here; the library API rejects it here.
+        if options.repeat > 1 && options.parallel {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "a repeated run cannot be parallel: the rounds run one after another",
+            ));
+        }
+
         if options.dry_run {
             self.print_plan()?;
             return Ok(Termination::Success);
@@ -85,7 +98,11 @@ impl Executor {
         // The reporter prints the run's summary when dropped, so it is owned
         // here: it outlives the strategy and is gone before the outcome
         // reaches `main`, which may print an error of its own.
-        let progress = progress::new(self.total(options), options);
+        //
+        // The reporter counts every command the run starts, but it only
+        // needs a capture slot per command of the list: the rounds of a
+        // repeated run go one after another and reuse the slots.
+        let progress = progress::new(self.total(options), self.routines.len(), options);
         if options.repeat > 1 {
             Repeat.execute(&self.routines, &progress, options)
         } else if options.parallel {
@@ -100,7 +117,11 @@ impl Executor {
     /// Every round runs the whole list, so a repeated run starts each
     /// command once per round.
     fn total(&self, options: Options) -> usize {
-        self.routines.len() * options.repeat.max(1)
+        // The count is a `u32`, which fits in a `usize` on every target
+        // Rust supports.
+        self.routines
+            .len()
+            .saturating_mul(options.repeat.max(1) as usize)
     }
 
     /// Print the commands that would run, one per line.
@@ -177,5 +198,19 @@ mod tests {
     #[test]
     fn a_single_round_is_the_default() {
         assert_eq!(Options::default().repeat, 1);
+    }
+
+    /// The rounds go one after another, so there is nothing for the
+    /// parallel strategy to do. The command line rejects the combination;
+    /// the library API rejects it too.
+    #[test]
+    fn a_repeated_run_cannot_be_parallel() {
+        let options = Options {
+            repeat: 2,
+            parallel: true,
+            ..Default::default()
+        };
+        let err = Executor::new(Vec::new(), options).execute().unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput, "{err}");
     }
 }

@@ -43,17 +43,18 @@ impl Strategy for Repeat {
 /// Every round shares one report, so the run still ends with the first
 /// failure's exit code, whichever round it happened in.
 ///
+/// Every round reuses the progress slots of the list: the rounds run one
+/// after another, so a slot's capture buffer is free again by the time the
+/// next round reaches it.
+///
 /// Returns whether the caller may run more rounds: a failure without
 /// `--keep-going`, an interrupt, or a command that could not be started
 /// ends the run.
 fn run(routines: &[Routine], progress: &dyn Progress, options: Options, report: &Report) -> bool {
     let rounds = options.repeat.max(1);
 
-    for round in 0..rounds {
-        // Each round numbers its commands from its own offset, so every
-        // run keeps a slot of its own in the progress display.
-        let offset = round * routines.len();
-        if !run_list(routines, progress, options, report, offset) {
+    for _ in 0..rounds {
+        if !run_list(routines, progress, options, report) {
             return false;
         }
     }

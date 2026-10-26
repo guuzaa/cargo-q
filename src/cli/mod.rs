@@ -27,7 +27,7 @@ pub struct Cli {
     flags: Vec<Flag>,
 
     /// How many rounds `--repeat` asked for.
-    repeat: Option<usize>,
+    repeat: Option<u32>,
 
     /// The cargo commands to run, with their arguments.
     commands: Vec<OsString>,
@@ -69,7 +69,7 @@ impl Cli {
     /// `None` means the list runs once, which is what every run does
     /// without `--repeat`.
     #[must_use]
-    pub fn repeat(&self) -> Option<usize> {
+    pub fn repeat(&self) -> Option<u32> {
         self.repeat
     }
 
@@ -444,16 +444,18 @@ fn usage_line(given: &[Flag]) -> String {
 /// The number of rounds to run.
 ///
 /// Zero rounds would run nothing at all, so it is rejected rather than
-/// quietly turning into a successful no-op.
-fn repeat_count(value: &OsStr) -> Result<usize, String> {
+/// quietly turning into a successful no-op. The count is a `u32`: a run
+/// that repeats the list billions of times over is a run that no machine
+/// sits through, and the type keeps the arithmetic that follows it small.
+fn repeat_count(value: &OsStr) -> Result<u32, String> {
     let text = value.to_string_lossy();
-    let count: usize = text
+    let count: u64 = text
         .parse()
         .map_err(|_| format!("`{text}` is not a number of rounds"))?;
     if count == 0 {
         return Err("a run needs at least one round".to_string());
     }
-    Ok(count)
+    u32::try_from(count).map_err(|_| format!("`{text}` is more rounds than a run can count"))
 }
 
 /// The value of `--repeat`, written either with `=` or as the following

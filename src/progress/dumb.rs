@@ -20,7 +20,7 @@ struct DumbState {
 }
 
 impl ConsoleProgress {
-    pub fn new(total: usize, verbose: bool) -> Self {
+    pub fn new(total: usize, slots: usize, verbose: bool) -> Self {
         Self {
             verbose,
             state: Mutex::new(DumbState {
@@ -29,7 +29,7 @@ impl ConsoleProgress {
                 started_count: 0,
                 start_time: Instant::now(),
             }),
-            outputs: (0..total).map(|_| Mutex::new(Tail::new())).collect(),
+            outputs: (0..slots).map(|_| Mutex::new(Tail::new())).collect(),
         }
     }
 }
@@ -115,7 +115,7 @@ mod tests {
 
     #[test]
     fn tracks_count() {
-        let progress = ConsoleProgress::new(4, false);
+        let progress = ConsoleProgress::new(4, 4, false);
         assert_eq!(progress.success_count(), 0);
         assert_eq!(progress.total(), 4);
 
@@ -135,5 +135,20 @@ mod tests {
         progress.task_output(3, b"error");
         progress.task_finished(3, "fmt", false, Some(101));
         assert_eq!(progress.success_count(), 3);
+    }
+
+    /// A repeated run reuses the slots of the list, so a slot must be empty
+    /// again by the time the next round reaches it.
+    #[test]
+    fn a_slot_is_empty_again_after_a_command_finished() {
+        let progress = ConsoleProgress::new(2, 2, false);
+
+        progress.task_started(0, "check");
+        progress.task_output(0, b"some output");
+        progress.task_finished(0, "check", true, None);
+
+        let mut buf = Vec::new();
+        progress.outputs[0].lock().unwrap().append_to(&mut buf);
+        assert!(buf.is_empty(), "the slot kept the output of the last round");
     }
 }

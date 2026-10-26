@@ -38,7 +38,7 @@ const UPDATE_DELAY: Duration = Duration::from_millis(50);
 const TIMEOUT_DELAY: Duration = Duration::from_millis(500);
 
 impl ConsoleProgress {
-    pub fn new(total: usize) -> Self {
+    pub fn new(total: usize, slots: usize) -> Self {
         let dirty_cond = Arc::new(Condvar::new());
         let state = Arc::new(Mutex::new(FancyState {
             done: false,
@@ -96,7 +96,7 @@ impl ConsoleProgress {
 
         ConsoleProgress {
             state,
-            outputs: (0..total).map(|_| Mutex::new(Tail::new())).collect(),
+            outputs: (0..slots).map(|_| Mutex::new(Tail::new())).collect(),
             thread: Some(thread),
         }
     }
@@ -311,7 +311,10 @@ fn progress_bar(completed: usize, running: usize, total: usize, bar_size: usize)
     let pending = total.saturating_sub(completed + running);
     for (count, ch) in [(completed, '='), (running, '-'), (pending, ' ')] {
         sum += count;
-        let mut target_size = sum * bar_size / total;
+        // The multiply is done in a wider type: a run that repeats the list
+        // many times over has a large total, and the product would overflow
+        // on a 32-bit target as well as on a 64-bit one.
+        let mut target_size = (sum as u128 * bar_size as u128 / total as u128) as usize;
         if count > 0 && target_size == bar.len() && target_size < bar_size {
             // Special case: for non-zero count, ensure we always get at least one tick.
             target_size += 1;
@@ -370,6 +373,21 @@ mod tests {
 
         // Nothing pending.
         assert_eq!(progress_bar(1, 99, 100, 10), "=---------");
+    }
+
+    /// A run that repeats the list many times over has a large total, and
+    /// the bar's arithmetic must not overflow, on a 32-bit target or a
+    /// 64-bit one.
+    #[test]
+    fn progress_bar_with_a_huge_total() {
+        let total = 1_000_000_000;
+        let bar = progress_bar(1, 1, total, 40);
+        assert_eq!(bar.chars().count(), 40);
+        assert!(bar.starts_with('='), "{bar}");
+
+        let total = usize::MAX;
+        let bar = progress_bar(1, 1, total, 40);
+        assert_eq!(bar.chars().count(), 40);
     }
 
     #[test]

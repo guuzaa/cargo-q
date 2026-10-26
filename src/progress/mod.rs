@@ -20,6 +20,11 @@ use std::time::Instant;
 /// Trait for command progress notifications.
 pub trait Progress: Send + Sync {
     /// Called when a command starts.
+    ///
+    /// `id` is the command's place in the list, and it tells the commands
+    /// that run at the same time apart. A repeated run reuses the same id
+    /// for the same command in every round: the rounds run one after
+    /// another, so only one round's commands are live at a time.
     fn task_started(&self, id: usize, cmd: &str);
 
     /// Called with a chunk of merged stdout+stderr as the command produces it.
@@ -35,21 +40,27 @@ pub trait Progress: Send + Sync {
 
 /// Build a progress reporter for `total` commands.
 ///
+/// `total` is how many commands the run starts in all: a repeated run
+/// starts every command once per round. `slots` is how many of them can run
+/// at the same time, and how many buffers are set aside to capture their
+/// output. A repeated run runs its rounds one after another and reuses the
+/// slots, so `slots` is the length of the command list, not `total`.
+///
 /// Fancy overprinting is used on an interactive terminal, except when
 /// `--verbose`: those commands inherit the TTY so cargo can draw its own
 /// progress, and a status overlay would collide with it. Parallel
 /// `--verbose` is rejected before this is called, so `verbose` here is
 /// sequential only. `--no-fancy` rules the fancy console out altogether.
 #[must_use]
-pub fn new(total: usize, options: Options) -> Arc<dyn Progress> {
+pub fn new(total: usize, slots: usize, options: Options) -> Arc<dyn Progress> {
     let tty = fancy::enabled();
     // Color belongs to a person reading a terminal; `--no-fancy` opts out of
     // it together with the overprinting display.
     color::set_enabled(tty && options.fancy);
     if want_fancy(tty, options.verbose, options.fancy) {
-        Arc::new(fancy::ConsoleProgress::new(total))
+        Arc::new(fancy::ConsoleProgress::new(total, slots))
     } else {
-        Arc::new(dumb::ConsoleProgress::new(total, options.verbose))
+        Arc::new(dumb::ConsoleProgress::new(total, slots, options.verbose))
     }
 }
 

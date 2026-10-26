@@ -43,8 +43,9 @@ pub trait Strategy {
 
 /// Run the routines one after another.
 ///
-/// `offset` is the progress slot of the first routine, so a list that is
-/// run more than once keeps every run in its own slot.
+/// The routine's place in the list is its progress slot, so a list that is
+/// run more than once keeps every round in the same slots: the rounds run
+/// one after another, and only one round is live at a time.
 ///
 /// Returns whether the caller may run more routines: a failure without
 /// `--keep-going`, an interrupt, or a command that could not be started
@@ -54,13 +55,12 @@ pub(crate) fn run_list(
     progress: &dyn Progress,
     options: Options,
     report: &Report,
-    offset: usize,
 ) -> bool {
-    for (i, routine) in routines.iter().enumerate() {
+    for (id, routine) in routines.iter().enumerate() {
         if process::was_interrupted() {
             return false;
         }
-        if !run_one(offset + i, routine, progress, options, report) {
+        if !run_one(id, routine, progress, options, report) {
             return false;
         }
     }

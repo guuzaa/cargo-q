@@ -217,6 +217,22 @@ fn repeat_rejects_a_value_that_is_not_a_number() {
     );
 }
 
+/// The count is a `u32`: more rounds than that is a count no run sits
+/// through.
+#[test]
+fn repeat_counts_rounds_in_a_u32() {
+    let count = u32::MAX.to_string();
+    let cli = parse_args(&["--repeat", &count, "check"]);
+    assert_eq!(cli.repeat(), Some(u32::MAX));
+
+    let count = (u64::from(u32::MAX) + 1).to_string();
+    let err = parse_error(&["--repeat", &count, "check"]);
+    assert!(
+        matches!(err, ParseError::InvalidValue { option: REPEAT, .. }),
+        "{err:?}"
+    );
+}
+
 /// A round count that is not there is a mistake, not a command: the
 /// option after it is one of cargo-q's, not the value.
 #[test]
