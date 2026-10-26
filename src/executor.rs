@@ -137,19 +137,18 @@ impl Executor {
         } else {
             "sequentially"
         };
-        let repeat = self.options.repeat.max(1);
+
+        // The rounds are named only when there are more than one: "2
+        // command(s), sequentially:" reads better than "2 command(s) x 1
+        // rounds, sequentially:".
+        let rounds = match self.options.repeat.max(1) {
+            1 => String::new(),
+            rounds => format!(" x {rounds} rounds"),
+        };
 
         let stdout = io::stdout();
         let mut out = stdout.lock();
-        if repeat > 1 {
-            writeln!(
-                out,
-                "{} command(s) x {repeat} rounds, {mode}:",
-                self.routines.len()
-            )?;
-        } else {
-            writeln!(out, "{} command(s), {mode}:", self.routines.len())?;
-        }
+        writeln!(out, "{} command(s){rounds}, {mode}:", self.routines.len())?;
         for routine in &self.routines {
             writeln!(out, "  {routine}")?;
         }

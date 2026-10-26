@@ -199,7 +199,7 @@ fn repeat_rejects_zero_rounds() {
             value,
             reason,
         } => {
-            assert_eq!(option, REPEAT);
+            assert_eq!(option, Flag::Repeat);
             assert_eq!(value, OsString::from("0"));
             assert_eq!(reason, "a run needs at least one round");
         }
@@ -212,7 +212,13 @@ fn repeat_rejects_zero_rounds() {
 fn repeat_rejects_a_value_that_is_not_a_number() {
     let err = parse_error(&["--repeat=abc", "check"]);
     assert!(
-        matches!(err, ParseError::InvalidValue { option: REPEAT, .. }),
+        matches!(
+            err,
+            ParseError::InvalidValue {
+                option: Flag::Repeat,
+                ..
+            }
+        ),
         "{err:?}"
     );
 }
@@ -228,7 +234,13 @@ fn repeat_counts_rounds_in_a_u32() {
     let count = (u64::from(u32::MAX) + 1).to_string();
     let err = parse_error(&["--repeat", &count, "check"]);
     assert!(
-        matches!(err, ParseError::InvalidValue { option: REPEAT, .. }),
+        matches!(
+            err,
+            ParseError::InvalidValue {
+                option: Flag::Repeat,
+                ..
+            }
+        ),
         "{err:?}"
     );
 }
@@ -240,7 +252,12 @@ fn repeat_without_a_value_is_an_error() {
     for args in [&["--repeat"][..], &["--repeat", "--dry-run", "check"][..]] {
         let err = parse_error(args);
         assert!(
-            matches!(err, ParseError::MissingValue { option: REPEAT }),
+            matches!(
+                err,
+                ParseError::MissingValue {
+                    option: Flag::Repeat
+                }
+            ),
             "{err:?}"
         );
     }
@@ -256,7 +273,7 @@ fn an_unknown_option_is_a_round_count() {
             value,
             reason,
         } => {
-            assert_eq!(option, REPEAT);
+            assert_eq!(option, Flag::Repeat);
             assert_eq!(value, OsString::from("--bogus"));
             assert_eq!(reason, "`--bogus` is not a number of rounds");
         }
@@ -272,13 +289,13 @@ fn repeat_conflicts_with_parallel() {
     let cases = [
         (
             &["--repeat", "3", "-p", "check"][..],
-            REPEAT,
-            Flag::Parallel.usage(),
+            Flag::Repeat,
+            Flag::Parallel,
         ),
         (
             &["-p", "--repeat", "3", "check"][..],
-            Flag::Parallel.usage(),
-            REPEAT,
+            Flag::Parallel,
+            Flag::Repeat,
         ),
     ];
     for (args, first, second) in cases {
@@ -306,7 +323,12 @@ fn repeat_conflicts_with_parallel() {
 fn a_repeat_given_twice_is_an_error() {
     let err = parse_error(&["--repeat", "3", "--repeat", "4", "check"]);
     assert!(
-        matches!(err, ParseError::DuplicateOption { option: REPEAT }),
+        matches!(
+            err,
+            ParseError::DuplicateOption {
+                option: Flag::Repeat
+            }
+        ),
         "{err:?}"
     );
 }

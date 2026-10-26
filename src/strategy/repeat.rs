@@ -47,17 +47,15 @@ impl Strategy for Repeat {
 /// after another, so a slot's capture buffer is free again by the time the
 /// next round reaches it.
 ///
-/// Returns whether the caller may run more rounds: a failure without
+/// The run stops early when a round cannot go on: a failure without
 /// `--keep-going`, an interrupt, or a command that could not be started
 /// ends the run.
-fn run(routines: &[Routine], progress: &dyn Progress, options: Options, report: &Report) -> bool {
+fn run(routines: &[Routine], progress: &dyn Progress, options: Options, report: &Report) {
     let rounds = options.repeat.max(1);
 
     for _ in 0..rounds {
         if !run_list(routines, progress, options, report) {
-            return false;
+            break;
         }
     }
-
-    true
 }

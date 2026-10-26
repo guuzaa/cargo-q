@@ -14,10 +14,8 @@ use crate::routine::Routine;
 use lexopt::prelude::*;
 use lexopt::{Arg, Parser};
 use std::ffi::{OsStr, OsString};
+use std::fmt;
 use std::io;
-
-/// The option that takes a value, as the usage line and the errors show it.
-const REPEAT: &str = "--repeat <N>";
 
 /// cargo-q's own options, and the commands to run.
 #[derive(Debug, Default)]
@@ -166,27 +164,36 @@ impl Cli {
         Ok(Outcome::Run(Self::checked(cli)?))
     }
 
-    /// Record an option, and check that it does not clash with one that was
-    /// given before.
+    /// Check that an option does not clash with one that was given before.
     ///
     /// `--repeat` and `--parallel` cannot be combined: the rounds run one
     /// after another, so there is nothing for `--parallel` to do.
-    fn push(&mut self, flag: Flag) -> Result<(), ParseError> {
+    fn check(&self, flag: Flag) -> Result<(), ParseError> {
         if self.flags.contains(&flag) {
-            return Err(ParseError::DuplicateOption {
-                option: flag.usage(),
-            });
+            return Err(ParseError::DuplicateOption { option: flag });
         }
 
         if let Some(other) = self.flags.iter().find(|other| other.conflicts(flag)) {
             return Err(ParseError::Conflict {
-                first: other.usage(),
-                second: flag.usage(),
+                first: *other,
+                second: flag,
                 given: self.flags.clone(),
             });
         }
 
+        Ok(())
+    }
+
+    /// Record an option that was checked.
+    fn record(&mut self, flag: Flag) {
         self.flags.push(flag);
+    }
+
+    /// Record an option, and check that it does not clash with one that was
+    /// given before.
+    fn push(&mut self, flag: Flag) -> Result<(), ParseError> {
+        self.check(flag)?;
+        self.record(flag);
         Ok(())
     }
 
@@ -195,16 +202,14 @@ impl Cli {
         // The option is looked up before its value is judged: an option
         // that is given twice is reported before its second value is
         // looked at.
-        if self.flags.contains(&Flag::Repeat) {
-            return Err(ParseError::DuplicateOption { option: REPEAT });
-        }
+        self.check(Flag::Repeat)?;
 
         let count = repeat_count(&value).map_err(|reason| ParseError::InvalidValue {
-            option: REPEAT,
+            option: Flag::Repeat,
             value,
             reason,
         })?;
-        self.push(Flag::Repeat)?;
+        self.record(Flag::Repeat);
         self.repeat = Some(count);
         Ok(())
     }
@@ -254,8 +259,9 @@ impl Cli {
 ///
 /// `Flag` names every option the parser knows, `--help` and `--version`
 /// included, so that the parser and the helpers that need to recognize an
-/// option share one list instead of each spelling the options out. Only
-/// the flags before `Repeat` are recorded in `Cli`; the rest end parsing.
+/// option share one list instead of each spelling the options out. Every
+/// option but `--help` and `--version` is recorded in `Cli`; those two end
+/// the parsing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Flag {
     Verbose,
@@ -296,7 +302,7 @@ impl Flag {
             Flag::KeepGoing => "--keep-going",
             Flag::DryRun => "--dry-run",
             Flag::NoFancy => "--no-fancy",
-            Flag::Repeat => REPEAT,
+            Flag::Repeat => "--repeat <N>",
             Flag::Help(Help::Short) => "-h",
             Flag::Help(Help::Long) => "--help",
             Flag::Version => "--version",
@@ -312,6 +318,12 @@ impl Flag {
             (self, other),
             (Flag::Repeat, Flag::Parallel) | (Flag::Parallel, Flag::Repeat)
         )
+    }
+}
+
+impl fmt::Display for Flag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.usage())
     }
 }
 
@@ -336,19 +348,19 @@ enum ParseError {
         given: Vec<Flag>,
     },
     /// The same option was given twice.
-    DuplicateOption { option: &'static str },
+    DuplicateOption { option: Flag },
     /// Two options that cannot be used together were given, `first` before
     /// `second`.
     Conflict {
-        first: &'static str,
-        second: &'static str,
+        first: Flag,
+        second: Flag,
         given: Vec<Flag>,
     },
     /// An option that takes a value was given none.
-    MissingValue { option: &'static str },
+    MissingValue { option: Flag },
     /// The value of an option is not one it accepts.
     InvalidValue {
-        option: &'static str,
+        option: Flag,
         value: OsString,
         reason: String,
     },
@@ -472,7 +484,9 @@ fn repeat_value(
                 *index += 1;
                 Ok(next.clone())
             }
-            _ => Err(ParseError::MissingValue { option: REPEAT }),
+            _ => Err(ParseError::MissingValue {
+                option: Flag::Repeat,
+            }),
         },
     }
 }
