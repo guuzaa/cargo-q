@@ -1,12 +1,18 @@
 # Changelog
 
-## [Unreleased]
+## [0.7.0] - 2026-10-26
+### Added
+- `--repeat <N>` runs the whole list of commands N times over. A round is the whole list, in the order the commands were given, so `--repeat 3 check test` runs `check test` three times. A failure ends the run, so the later rounds never start; with `-k`/`--keep-going` every round runs anyway, and the exit code still reports the first failure. `--repeat 0` is rejected, since a run needs at least one round, and so is a count past 4294967295, which is more rounds than a run can count. The rounds run one after another, so `--repeat` cannot be combined with `--parallel`, and `--dry-run` shows the round count (`2 command(s) x 3 rounds`).
+
 ### Fixed
-- A short option that is given a value (`-p=1`) is reported as the mistake it is — `unexpected value '1' for '-p' found; no more were expected` — like the long form already was, instead of quietly becoming a command.
+- A short option that is given a value (`-p=1`) is reported as the mistake it is — `unexpected value '1' for '-p' found; no more were expected` — like the long form already was, instead of quietly becoming a command. It is a usage error now, so it exits 2 rather than 1.
 
 ### Changed
-- clap is replaced with lexopt. The command line is parsed the same way: the help text, the error messages, and the exit codes are unchanged, and an argument that is not valid UTF-8 still reaches cargo untouched. The binary is about 40% smaller, and the dependency tree is down to a single crate.
-- **Breaking (library):** `Cli` no longer implements `clap::Parser`, so `Cli::parse_from` is gone. `Cli::parse` and `Cli::run` are unchanged.
+- clap is replaced with lexopt. The command line is parsed the same way: the help text, the error messages, and the exit codes are unchanged — apart from the one mistake listed under Fixed — and an argument that is not valid UTF-8 still reaches cargo untouched. The binary is about 35% smaller than the same build with clap, and 44% smaller than the 0.6.0 binary; the dependency tree is down from 43 crates to 15.
+- The minimum supported Rust version (MSRV) is lowered to 1.75.0, from 1.78 — clap is gone, and none of the remaining dependencies need a newer compiler.
+- The release build now uses `codegen-units = 1`, trading build time for a faster binary.
+- **Breaking (library):** `Cli` no longer implements `clap::Parser`, so `Cli::parse_from` is gone, and its fields are private now: `verbose()`, `parallel()`, `keep_going()`, `dry_run()`, `no_fancy()` and `repeat()` read them instead. `Cli::parse` and `Cli::run` are unchanged.
+- **Breaking (library):** `Options` has a new `repeat` field, a `u32`, so a struct literal without it no longer compiles, and `Options::default()` leaves the fancy console on, where the derived one left it off. `progress::new` takes the number of capture slots as well, and a `Progress` task id is now the command's place in the list, which a repeated run reuses in every round.
 
 ## [0.6.0] - 2026-10-17
 ### Added
