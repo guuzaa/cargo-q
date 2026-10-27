@@ -15,6 +15,7 @@ use lexopt::prelude::*;
 use lexopt::{Arg, Parser};
 use std::ffi::{OsStr, OsString};
 use std::fmt;
+use std::fmt::Write;
 use std::io;
 
 /// cargo-q's own options, and the commands to run.
@@ -136,7 +137,7 @@ impl Cli {
                     Err(err) => return Err(ParseError::Malformed(err.to_string())),
                 };
 
-                match Flag::from_token(token) {
+                match Flag::from_token(&token) {
                     Some(Flag::Verbose) => cli.push(Flag::Verbose)?,
                     Some(Flag::Parallel) => cli.push(Flag::Parallel)?,
                     Some(Flag::KeepGoing) => cli.push(Flag::KeepGoing)?,
@@ -279,7 +280,7 @@ enum Flag {
 
 impl Flag {
     /// The option a token names, if it is one of cargo-q's.
-    fn from_token(token: Arg<'_>) -> Option<Self> {
+    fn from_token(token: &Arg<'_>) -> Option<Self> {
         match token {
             Short('v') | Long("verbose") => Some(Flag::Verbose),
             Short('p') | Long("parallel") => Some(Flag::Parallel),
@@ -433,7 +434,7 @@ impl ParseError {
 
         let mut text = format!("error: {message}\n\n");
         if let Some(usage) = usage {
-            text.push_str(&format!("Usage: cargo-q {usage}\n\n"));
+            write!(text, "Usage: cargo-q {usage}\n\n").expect("failed to insert cargo-q usage");
         }
         text.push_str("For more information, try '--help'.");
         text
@@ -505,7 +506,7 @@ fn is_repeat_value(arg: &OsStr) -> bool {
 
     let mut parser = Parser::from_args(std::iter::once(arg.to_os_string()));
     match parser.next() {
-        Ok(Some(token)) => Flag::from_token(token).is_none(),
+        Ok(Some(token)) => Flag::from_token(&token).is_none(),
         _ => true,
     }
 }
