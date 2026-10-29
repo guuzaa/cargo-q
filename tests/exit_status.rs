@@ -519,14 +519,23 @@ fn a_direct_interrupt_kills_the_grandchildren_of_a_captured_child() {
     let dir = OutsidePackage::new();
     let child_pid_file = dir.0.join("child.pid");
     let grandchild_pid_file = dir.0.join("grandchild.pid");
+    // The grandchild runs in the foreground on purpose. A background job of a
+    // non-interactive shell has SIGINT set to ignore, and a signal ignored on
+    // entry to a shell cannot be trapped, so it would outlive the interrupt no
+    // matter what cargo-q did with the group.
+    //
+    // `exec` keeps the pid, so the recorded one is the process that has to
+    // die, and it dies whichever way the interrupt arrives: before the exec
+    // it is a shell with the default disposition, after it a `sleep` with the
+    // default disposition. A `sleep` forked by a shell would be a different
+    // process, and one forked after the signal was delivered would never see
+    // it.
     let fake = write_script(
         &dir.0,
         "cargo-with-a-child",
         &format!(
             "echo $$ > '{}'\n\
-             sh -c 'trap \"exit 42\" INT; sleep 5' &\n\
-             echo $! > '{}'\n\
-             wait\n",
+             sh -c 'echo $$ > \"{}\"; exec sleep 5'\n",
             child_pid_file.display(),
             grandchild_pid_file.display()
         ),
@@ -560,8 +569,11 @@ fn a_direct_interrupt_kills_the_grandchildren_of_a_captured_child() {
     let status = wait_for_exit(&mut cargo_q, Duration::from_secs(5));
     assert_eq!(status.code(), Some(130), "{status:?}");
     assert!(!process_alive(child_pid), "child cargo still running");
+    // The grandchild is orphaned when the child dies, so it leaves the process
+    // table only once whoever adopted it has reaped it. A zombie answers
+    // `kill(pid, 0)`, so wait for it to go instead of looking once.
     assert!(
-        !process_alive(grandchild_pid),
+        wait_for_gone(grandchild_pid, Duration::from_secs(5)),
         "the grandchild of a captured child should have died with its group"
     );
     reap_child.0 = None;
@@ -634,4 +646,24 @@ fn process_alive(pid: libc::pid_t) -> bool {
     }
     // EPERM means the process exists and is owned by someone else.
     std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+}
+
+/// Wait for a process to leave the process table.
+///
+/// A process that is gone but not yet reaped is a zombie, and a zombie still
+/// answers `kill(pid, 0)`, so the wait has to outlast the reaping.
+#[cfg(unix)]
+fn wait_for_gone(pid: libc::pid_t, timeout: std::time::Duration) -> bool {
+    use std::time::Instant;
+
+    let started = Instant::now();
+    loop {
+        if !process_alive(pid) {
+            return true;
+        }
+        if started.elapsed() > timeout {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
 }
