@@ -368,6 +368,231 @@ fn sigterm_kills_the_child_and_exits_interrupted() {
     reap_worker.0 = None;
 }
 
+/// The terminal's Ctrl-C reaches a verbose child because it shares our
+/// process group: the child is interrupted even though we did not forward
+/// anything to it, and cargo-q knows it was interrupted.
+#[cfg(target_os = "linux")]
+#[test]
+fn the_terminal_reaches_a_verbose_child() {
+    use std::io::Write;
+    use std::time::{Duration, Instant};
+
+    let dir = OutsidePackage::new();
+    let ready_file = dir.0.join("ready");
+    let interrupted_file = dir.0.join("interrupted");
+    let fake = write_script(
+        &dir.0,
+        "interrupting-cargo",
+        &format!(
+            "trap 'echo interrupted > {}; exit 42' INT\n\
+             echo ready > {}\n\
+             sleep 5\n",
+            interrupted_file.display(),
+            ready_file.display()
+        ),
+    );
+
+    // `script` runs the command with a pseudo terminal of its own.
+    let mut script = Command::new("script")
+        .args([
+            "-qec",
+            &format!("{} -v version", env!("CARGO_BIN_EXE_cargo-q")),
+            "/dev/null",
+        ])
+        .env("CARGO", &fake)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .expect("run script");
+
+    // Wait until the child has its trap in place, then press Ctrl-C on the
+    // terminal: the terminal signals the whole foreground group, which is
+    // ours and the child's.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !ready_file.exists() {
+        assert!(Instant::now() < deadline, "the child cargo never started");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    if let Some(stdin) = script.stdin.as_mut() {
+        stdin.write_all(b"\x03").expect("press Ctrl-C");
+        stdin.flush().expect("flush Ctrl-C");
+    }
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !interrupted_file.exists() {
+        assert!(
+            Instant::now() < deadline,
+            "the terminal never reached the child"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let status = script.wait().expect("wait for cargo-q");
+    // The child caught the interrupt and left a code of its own, but cargo-q
+    // was interrupted as well, so that is what it reports.
+    assert_eq!(status.code(), Some(130), "{status:?}");
+}
+
+/// A verbose child keeps our process group, so a signal sent to us alone has
+/// to reach it on its own: the first interrupt asks it to stop, a later one
+/// takes it down.
+///
+/// The children it started are out of reach that way — the price of sharing
+/// the group — but the terminal's Ctrl-C reaches all of them.
+#[cfg(unix)]
+#[test]
+fn a_direct_interrupt_stops_a_verbose_child() {
+    use std::time::{Duration, Instant};
+
+    let dir = OutsidePackage::new();
+    let child_pid_file = dir.0.join("child.pid");
+    let grandchild_pid_file = dir.0.join("grandchild.pid");
+    // The child ignores SIGINT, so only the kill can end it.
+    let fake = write_script(
+        &dir.0,
+        "stubborn-cargo",
+        &format!(
+            "trap '' INT\n\
+             echo $$ > '{}'\n\
+             sh -c 'trap \"exit 42\" INT; sleep 5' &\n\
+             echo $! > '{}'\n\
+             wait\n",
+            child_pid_file.display(),
+            grandchild_pid_file.display()
+        ),
+    );
+
+    let mut cargo_q = Command::new(env!("CARGO_BIN_EXE_cargo-q"))
+        .args(["-v", "version"])
+        .env("CARGO", &fake)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("run cargo-q");
+
+    let started = Instant::now();
+    while !grandchild_pid_file.exists() {
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "the child cargo never started"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let child_pid: libc::pid_t = read_number(&child_pid_file);
+    let grandchild_pid: libc::pid_t = read_number(&grandchild_pid_file);
+    let mut reap_child = KillOnDrop(Some(child_pid));
+    // Kept armed: the grandchild is still running and has to be cleaned up.
+    let _reap_grandchild = KillOnDrop(Some(grandchild_pid));
+
+    // The first interrupt asks the child to stop; it ignores SIGINT.
+    let cargo_q_pid = libc::pid_t::try_from(cargo_q.id()).expect("cargo-q pid");
+    let signalled = unsafe { libc::kill(cargo_q_pid, libc::SIGINT) };
+    assert_eq!(signalled, 0, "send SIGINT to cargo-q");
+    std::thread::sleep(Duration::from_millis(500));
+    assert!(
+        process_alive(child_pid),
+        "the child died even though it ignores SIGINT"
+    );
+
+    // A later one takes it down.
+    let signalled = unsafe { libc::kill(cargo_q_pid, libc::SIGINT) };
+    assert_eq!(signalled, 0, "send SIGINT to cargo-q again");
+    let status = wait_for_exit(&mut cargo_q, Duration::from_secs(5));
+    assert_eq!(status.code(), Some(130), "{status:?}");
+    assert!(!process_alive(child_pid), "child cargo still running");
+    // What a verbose child started shares our group, so a signal sent to us
+    // alone does not reach it.
+    assert!(
+        process_alive(grandchild_pid),
+        "the grandchild should have survived a signal sent to cargo-q"
+    );
+    reap_child.0 = None;
+}
+
+/// A captured child leads its own process group, so a signal sent to us
+/// takes down the grandchildren cargo started as well.
+#[cfg(unix)]
+#[test]
+fn a_direct_interrupt_kills_the_grandchildren_of_a_captured_child() {
+    use std::time::{Duration, Instant};
+
+    let dir = OutsidePackage::new();
+    let child_pid_file = dir.0.join("child.pid");
+    let grandchild_pid_file = dir.0.join("grandchild.pid");
+    let fake = write_script(
+        &dir.0,
+        "cargo-with-a-child",
+        &format!(
+            "echo $$ > '{}'\n\
+             sh -c 'trap \"exit 42\" INT; sleep 5' &\n\
+             echo $! > '{}'\n\
+             wait\n",
+            child_pid_file.display(),
+            grandchild_pid_file.display()
+        ),
+    );
+
+    let mut cargo_q = Command::new(env!("CARGO_BIN_EXE_cargo-q"))
+        .args(["version"])
+        .env("CARGO", &fake)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("run cargo-q");
+
+    let started = Instant::now();
+    while !grandchild_pid_file.exists() {
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "the child cargo never started"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let child_pid: libc::pid_t = read_number(&child_pid_file);
+    let grandchild_pid: libc::pid_t = read_number(&grandchild_pid_file);
+    let mut reap_child = KillOnDrop(Some(child_pid));
+    let mut reap_grandchild = KillOnDrop(Some(grandchild_pid));
+
+    let cargo_q_pid = libc::pid_t::try_from(cargo_q.id()).expect("cargo-q pid");
+    let signalled = unsafe { libc::kill(cargo_q_pid, libc::SIGINT) };
+    assert_eq!(signalled, 0, "send SIGINT to cargo-q");
+
+    let status = wait_for_exit(&mut cargo_q, Duration::from_secs(5));
+    assert_eq!(status.code(), Some(130), "{status:?}");
+    assert!(!process_alive(child_pid), "child cargo still running");
+    assert!(
+        !process_alive(grandchild_pid),
+        "the grandchild of a captured child should have died with its group"
+    );
+    reap_child.0 = None;
+    reap_grandchild.0 = None;
+}
+
+/// Write an executable shell script and return its path.
+#[cfg(unix)]
+fn write_script(dir: &Path, name: &str, body: &str) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+
+    let path = dir.join(name);
+    std::fs::write(&path, format!("#!/bin/sh\n{body}")).expect("write script");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
+        .expect("make script executable");
+    path
+}
+
+/// Read a number a script wrote out.
+#[cfg(unix)]
+fn read_number<T: std::str::FromStr>(path: &Path) -> T
+where
+    T::Err: std::fmt::Debug,
+{
+    std::fs::read_to_string(path)
+        .expect("read file")
+        .trim()
+        .parse()
+        .expect("parse number")
+}
+
 /// Kills `pid` on drop so a stalled `sleep` cannot outlive a failed test.
 #[cfg(unix)]
 struct KillOnDrop(Option<libc::pid_t>);

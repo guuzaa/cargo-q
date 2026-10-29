@@ -3,25 +3,28 @@
 //! What we do borrow from n2:
 //! - stdout and stderr share one pipe, so the callback sees them in time order
 //! - bytes are delivered to `output_cb` as they arrive, not after exit
-//! - each child runs in its own process group so Ctrl-C can kill cargo *and*
-//!   the rustc/link grandchildren it started
+//! - a captured child runs in its own process group so Ctrl-C can kill cargo
+//!   *and* the rustc/link grandchildren it started
+//!
+//! A verbose child keeps our own process group: it shares the terminal with
+//! us, so the terminal's Ctrl-C reaches it and everything it started without
+//! us having to forward anything. The price is that a signal sent to us
+//! alone only stops that child, not the children it started.
+//!
+//! What a platform makes of all that lives in `process_unix.rs` and
+//! `process_windows.rs`.
 //!
 //! <https://github.com/evmar/n2>
 
 use std::ffi::{OsStr, OsString};
 use std::io::{self, IsTerminal, Read};
-use std::process::{Command, ExitStatus, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, Once, PoisonError};
 
-#[cfg(windows)]
-use windows_sys::Win32::Foundation::CloseHandle;
-#[cfg(windows)]
-use windows_sys::Win32::System::Console::{GenerateConsoleCtrlEvent, CTRL_BREAK_EVENT};
-#[cfg(windows)]
-use windows_sys::Win32::System::Threading::{
-    OpenProcess, TerminateProcess, CREATE_NEW_PROCESS_GROUP, PROCESS_TERMINATE,
-};
+#[cfg_attr(unix, path = "process_unix.rs")]
+#[cfg_attr(windows, path = "process_windows.rs")]
+mod platform;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Termination {
@@ -46,7 +49,25 @@ impl Termination {
 }
 
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
-static PIDS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+static CHILDREN: Mutex<Vec<Tracked>> = Mutex::new(Vec::new());
+
+/// A child that may still be running.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Tracked {
+    pid: u32,
+    /// False for verbose children, which share our process group.
+    own_group: bool,
+}
+
+/// What to send a child that is still running.
+#[derive(Debug, Clone, Copy)]
+enum Signal {
+    /// Ask the child to stop.
+    Interrupt,
+    /// Take the child down.
+    Kill,
+}
+
 static HANDLER: Once = Once::new();
 
 #[inline]
@@ -76,32 +97,45 @@ pub fn install_interrupt_handler() {
     });
 }
 
+/// The first interrupt asks the children to stop; a later one kills them.
+///
+/// A verbose child shares our process group, so a signal meant for the group
+/// would hit us as well: it is signalled on its own. The terminal's Ctrl-C
+/// reaches the whole group, so such a child may see the interrupt twice.
 fn handle_interrupt() {
     let already = INTERRUPTED.swap(true, Ordering::SeqCst);
-    let pids = PIDS.lock().unwrap_or_else(PoisonError::into_inner);
-    for pid in pids.iter().copied() {
-        kill_process_group(pid, already);
+    let signal = if already {
+        Signal::Kill
+    } else {
+        Signal::Interrupt
+    };
+    let children = CHILDREN.lock().unwrap_or_else(PoisonError::into_inner);
+    for child in children.iter().copied() {
+        platform::signal_child(child, signal);
     }
 }
 
-struct PidGuard {
-    pid: u32,
+struct TrackedGuard {
+    child: Tracked,
 }
 
-impl Drop for PidGuard {
+impl Drop for TrackedGuard {
     fn drop(&mut self) {
-        let mut pids = PIDS.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(i) = pids.iter().position(|&p| p == self.pid) {
-            pids.swap_remove(i);
+        let mut children = CHILDREN.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(i) = children.iter().position(|&c| c == self.child) {
+            children.swap_remove(i);
         }
     }
 }
 
-fn register_pid(pid: u32) -> PidGuard {
-    PIDS.lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .push(pid);
-    PidGuard { pid }
+impl Tracked {
+    fn track(self) -> TrackedGuard {
+        CHILDREN
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(self);
+        TrackedGuard { child: self }
+    }
 }
 
 /// Run `program` with `args`, streaming merged stdout+stderr into `output_cb`.
@@ -127,9 +161,15 @@ pub fn run_command(
 
     let mut cmd = Command::new(program);
     cmd.args(args);
-    configure_process_group(&mut cmd);
 
-    let mut pipe_reader = if verbose {
+    // A verbose child uses the tty, so it must stay in our foreground group
+    // or SIGTTIN/SIGTTOU would stop it.
+    let own_group = !verbose;
+    if own_group {
+        platform::configure_process_group(&mut cmd);
+    }
+
+    let pipe_reader = if verbose {
         cmd.stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
@@ -149,12 +189,14 @@ pub fn run_command(
     drop(cmd); // release the writer halves held by `cmd`, or reader.read() never sees EOF
 
     let pid = child.id();
-    let _guard = register_pid(pid);
+    let tracked = Tracked { pid, own_group };
+    let _guard = tracked.track();
+    // Deliver an interrupt that arrived before the child was tracked.
     if was_interrupted() {
-        kill_process_group(pid, false);
+        platform::signal_child(tracked, Signal::Interrupt);
     }
 
-    if let Some(reader) = pipe_reader.as_mut() {
+    if let Some(mut reader) = pipe_reader {
         let mut buf = [0u8; 4096];
         loop {
             match reader.read(&mut buf) {
@@ -162,8 +204,7 @@ pub fn run_command(
                 Ok(n) => output_cb(&buf[..n]),
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
                 Err(e) => {
-                    kill_process_group(pid, false);
-                    let _ = child.wait();
+                    abort_child(&mut child, pid, reader);
                     return Err(e);
                 }
             }
@@ -174,6 +215,20 @@ pub fn run_command(
     Ok(termination_from_status(status))
 }
 
+/// Close the pipe so writers get EPIPE, then SIGKILL the group: a child that
+/// ignores SIGINT would keep `wait` from returning.
+fn abort_child(child: &mut Child, pid: u32, reader: os_pipe::PipeReader) {
+    drop(reader);
+    platform::signal_child(
+        Tracked {
+            pid,
+            own_group: true,
+        },
+        Signal::Kill,
+    );
+    let _ = child.wait();
+}
+
 fn termination_from_status(status: ExitStatus) -> Termination {
     if was_interrupted() {
         return Termination::Interrupted;
@@ -181,101 +236,20 @@ fn termination_from_status(status: ExitStatus) -> Termination {
     if status.success() {
         return Termination::Success;
     }
-    if signaled_interrupt(status) {
+    if platform::signaled_interrupt(status) {
         INTERRUPTED.store(true, Ordering::SeqCst);
         return Termination::Interrupted;
     }
-    Termination::Failure(exit_code(status))
-}
-
-/// The shell-facing exit code of a failed child. A child killed by a signal
-/// has no exit code, so follow the shell convention of `128 + signal`.
-#[cfg(unix)]
-fn exit_code(status: ExitStatus) -> i32 {
-    use std::os::unix::process::ExitStatusExt;
-    match (status.code(), status.signal()) {
-        (Some(code), _) => code,
-        (None, Some(signal)) => 128 + signal,
-        (None, None) => 1,
-    }
-}
-
-#[cfg(not(unix))]
-fn exit_code(status: ExitStatus) -> i32 {
-    status.code().unwrap_or(1)
-}
-
-#[cfg(unix)]
-fn configure_process_group(cmd: &mut Command) {
-    use std::os::unix::process::CommandExt;
-    cmd.process_group(0);
-}
-
-#[cfg(windows)]
-fn configure_process_group(cmd: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    cmd.creation_flags(CREATE_NEW_PROCESS_GROUP);
-}
-
-#[cfg(not(any(unix, windows)))]
-fn configure_process_group(_cmd: &mut Command) {}
-
-#[cfg(unix)]
-fn kill_process_group(pid: u32, escalate: bool) {
-    let sig = if escalate {
-        libc::SIGKILL
-    } else {
-        libc::SIGINT
-    };
-    unsafe {
-        libc::kill(-(pid as i32), sig);
-    }
-}
-
-#[cfg(windows)]
-fn kill_process_group(pid: u32, escalate: bool) {
-    unsafe {
-        GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid);
-        if escalate {
-            let handle = OpenProcess(PROCESS_TERMINATE, 0, pid);
-            if !handle.is_null() {
-                TerminateProcess(handle, 1);
-                CloseHandle(handle);
-            }
-        }
-    }
-}
-
-#[cfg(not(any(unix, windows)))]
-fn kill_process_group(_pid: u32, _escalate: bool) {}
-
-#[cfg(unix)]
-fn signaled_interrupt(status: ExitStatus) -> bool {
-    use std::os::unix::process::ExitStatusExt;
-    matches!(status.signal(), Some(libc::SIGINT | libc::SIGTERM))
-}
-
-#[cfg(not(unix))]
-fn signaled_interrupt(_status: ExitStatus) -> bool {
-    false
+    Termination::Failure(platform::exit_code(status))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[cfg(unix)]
-    fn shell_command(script: &str) -> (&'static str, Vec<&str>) {
-        ("/bin/sh", vec!["-c", script])
-    }
-
-    #[cfg(windows)]
-    fn shell_command(script: &str) -> (&'static str, Vec<&str>) {
-        ("cmd", vec!["/C", script])
-    }
-
-    fn run_shell(script: &str) -> (Termination, Vec<u8>) {
-        let (program, args) = shell_command(script);
+    /// Run a shell command and collect what it wrote.
+    pub(super) fn run_shell(script: &str) -> (Termination, Vec<u8>) {
+        let (program, args) = platform::shell_command(script);
         let mut output = Vec::new();
         let term = run_command(program, args, false, false, |buf| {
             output.extend_from_slice(buf)
@@ -285,46 +259,9 @@ mod tests {
     }
 
     #[test]
-    fn captures_stdout() {
-        #[cfg(unix)]
-        let (term, output) = run_shell("printf 'hello\\n'");
-        #[cfg(windows)]
-        let (term, output) = run_shell("echo hello");
-
-        assert_eq!(term, Termination::Success);
-        let text = String::from_utf8_lossy(&output);
-        assert!(text.contains("hello"), "{text:?}");
-    }
-
-    #[test]
-    fn merges_stderr_into_the_same_stream() {
-        #[cfg(unix)]
-        let (term, output) = run_shell("printf 'out\\n'; printf 'err\\n' >&2; printf 'out2\\n'");
-        #[cfg(windows)]
-        let (term, output) = run_shell("echo out& echo err 1>&2& echo out2");
-
-        assert_eq!(term, Termination::Success);
-        let text = String::from_utf8_lossy(&output);
-        assert!(text.contains("out"), "{text:?}");
-        assert!(text.contains("err"), "{text:?}");
-        assert!(text.contains("out2"), "{text:?}");
-    }
-
-    #[test]
     fn reports_failure() {
-        #[cfg(unix)]
         let (term, _) = run_shell("exit 7");
-        #[cfg(windows)]
-        let (term, _) = run_shell("exit 7");
-
         assert_eq!(term, Termination::Failure(7));
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn reports_signal_death_as_128_plus_signal() {
-        let (term, _) = run_shell("kill -9 $$");
-        assert_eq!(term, Termination::Failure(137));
     }
 
     #[test]
@@ -332,13 +269,5 @@ mod tests {
         assert_eq!(Termination::Success.exit_code(), 0);
         assert_eq!(Termination::Interrupted.exit_code(), 130);
         assert_eq!(Termination::Failure(101).exit_code(), 101);
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn interleaves_stdout_and_stderr_in_time_order() {
-        let (term, output) = run_shell("printf A; printf B >&2; printf C");
-        assert_eq!(term, Termination::Success);
-        assert_eq!(output, b"ABC");
     }
 }
