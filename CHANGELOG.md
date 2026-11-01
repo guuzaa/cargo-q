@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.1] - 2026-11-01
+### Fixed
+- A verbose child no longer hangs on the terminal. It used to lead a process group of its own, which put it in a background process group as far as the terminal was concerned, so a read from the terminal made the kernel send `SIGTTIN` and stop it: `cargo q -v run` hung on any program that reads stdin, with no error message and no output — the child was stopped and cargo-q waited on it forever. A verbose child now stays in cargo-q's own foreground process group, so the terminal's Ctrl-C reaches it and everything it started, and job control keeps working. The price is that a signal sent to cargo-q alone no longer reaches the children a verbose child started, and such a child cannot be signalled as a group without hitting cargo-q as well, so cargo-q tracks whether a child leads its own group and signals it by pid when it does not: the first interrupt asks it to stop, a later one kills it.
+- A child that ignores `SIGINT` no longer hangs cargo-q when its output pipe breaks. The pipe is closed first, so its writers get `EPIPE`, and then its group is killed: a child that would have kept the wait from returning is taken down instead.
+
+### Changed
+- The platform-specific parts of running a child — the process group it leads, the signals it gets, the exit code it leaves behind — move out of `src/process.rs` into `src/process_unix.rs` and `src/process_windows.rs`. The behaviour is the same, and the public API of the `process` module is unchanged.
+- Two clippy pedantic warnings are cleaned up in the command line parser: the flag lookup takes its argument by reference, and the usage text is written with `write!` instead of `push_str(&format!(...))`.
+
 ## [0.7.0] - 2026-10-26
 ### Added
 - `--repeat <N>` runs the whole list of commands N times over. A round is the whole list, in the order the commands were given, so `--repeat 3 check test` runs `check test` three times. A failure ends the run, so the later rounds never start; with `-k`/`--keep-going` every round runs anyway, and the exit code still reports the first failure. `--repeat 0` is rejected, since a run needs at least one round, and so is a count past 4294967295, which is more rounds than a run can count. The rounds run one after another, so `--repeat` cannot be combined with `--parallel`, and `--dry-run` shows the round count (`2 command(s) x 3 rounds`).
