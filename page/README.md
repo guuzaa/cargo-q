@@ -11,7 +11,7 @@ Cloudflare.
 | `src/scripts/shell.ts` | The shell in the terminal at the top of the page: it takes what is typed, asks cargo-q's parser what it means, and runs the simulation. |
 | `src/scripts/palette.ts` | The colours of the page, shared by the stylesheet and by the scripts that paint the terminal. |
 | `src/scripts/simulate.ts` | The rehearsal of a run: the progress display, the failures, the summary and the exit code. `cargo test` fails in it on purpose. |
-| `src/worker.ts` | The Worker: it answers `/api/version` and hands everything else to the static assets. |
+| `src/worker.ts` | The Worker: it hands every request to the static assets. |
 | `wasm/` | A small Rust crate that compiles cargo-q's parser to WebAssembly. |
 | `public/demo/` | Recordings of real `cargo q` runs, replayed in the page. |
 | `og/card.svg` | The social card, the source of `public/og.png` (`og:image`). |

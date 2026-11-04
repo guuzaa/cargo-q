@@ -135,21 +135,3 @@ export function odometers(): void {
   }, { threshold: 0.6 });
   all.forEach((el) => observer.observe(el));
 }
-
-/** `[data-latest-version]` gets the version on crates.io, from the worker. */
-export async function latestVersion(): Promise<void> {
-  const elements = document.querySelectorAll<HTMLElement>('[data-latest-version]');
-  if (elements.length === 0) return;
-  try {
-    const response = await fetch('/api/version');
-    if (!response.ok) return;
-    const { version } = (await response.json()) as { version?: string };
-    if (!version) return;
-    for (const el of elements) {
-      el.textContent = `v${version}`;
-      el.removeAttribute('hidden');
-    }
-  } catch {
-    // `astro dev` has no worker; the page is fine without the version.
-  }
-}

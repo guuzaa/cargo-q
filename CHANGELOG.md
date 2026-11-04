@@ -16,6 +16,7 @@
 ### Changed
 - The social card of the landing page names the crate on crates.io now, not the site: `crates.io/crates/cargo-q`.
 - The landing page lives at <https://cargo-q.paulden.site> now: the canonical link, the social card's URL and the address the Worker answers on all follow it.
+- The Worker no longer answers `/api/version`. The page is static, and the version on crates.io was the one thing it had to ask for at runtime, so the Worker now only hands the requests to the assets. The page shows no version any more: the install line ends at `Rust ≥ 1.75 · Linux · macOS · Windows`, and the nav bar has no badge next to the name.
 
 ## [0.7.1] - 2026-11-01
 ### Fixed
