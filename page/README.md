@@ -9,6 +9,7 @@ Cloudflare.
 | --- | --- |
 | `src/` | The site: Astro components, the styles, and the scripts that run in the browser. |
 | `src/scripts/shell.ts` | The shell in the terminal at the top of the page: it takes what is typed, asks cargo-q's parser what it means, and runs the simulation. |
+| `src/scripts/palette.ts` | The colours of the page, shared by the stylesheet and by the scripts that paint the terminal. |
 | `src/scripts/simulate.ts` | The rehearsal of a run: the progress display, the failures, the summary and the exit code. `cargo test` fails in it on purpose. |
 | `src/worker.ts` | The Worker: it answers `/api/version` and hands everything else to the static assets. |
 | `wasm/` | A small Rust crate that compiles cargo-q's parser to WebAssembly. |
@@ -30,7 +31,7 @@ text, and `echo $?` prints the exit code of the last run.
 pnpm install
 pnpm dev            # the site on http://localhost:4321
 pnpm build          # the parser, then the site, into dist/
-pnpm check          # the types of the site and the worker
+pnpm check          # the colours of the page, and the types of the site and the worker
 pnpm preview        # the built site
 ```
 

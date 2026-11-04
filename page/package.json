@@ -10,7 +10,7 @@
     "dev": "astro dev",
     "build": "pnpm build:wasm && astro build",
     "build:wasm": "node scripts/build-wasm.mjs",
-    "check": "astro check",
+    "check": "node scripts/check-palette.mjs && astro check",
     "preview": "astro preview",
     "deploy": "pnpm build && wrangler deploy",
     "astro": "astro"

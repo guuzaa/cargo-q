@@ -3,6 +3,8 @@
  * light that follows the pointer, copy buttons, sparks and rolling digits.
  */
 
+import { PALETTE } from './palette';
+
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** `[data-reveal]` fades up once it scrolls into view; `--i` staggers it. */
@@ -72,7 +74,7 @@ export function burst(from: HTMLElement, count = 14): void {
   const box = from.getBoundingClientRect();
   const cx = box.left + box.width / 2;
   const cy = box.top + box.height / 2;
-  const colors = ['#7ee787', '#f26b21', '#e3b341', '#ffb08a', '#faf6f0'];
+  const colors = [PALETTE.status.ok, PALETTE.rust[500], PALETTE.status.warn, PALETTE.rust[300], PALETTE.sand[50]];
   for (let i = 0; i < count; i += 1) {
     const spark = document.createElement('span');
     spark.className = 'spark';

@@ -19,7 +19,7 @@ const plans = await Promise.all(flags.map((f) => dryRun(f.line)));
 ---
 
 <section class="mx-auto max-w-5xl px-4 pt-32" aria-labelledby="flags-title">
-  <h2 id="flags-title" class="text-center text-xs uppercase tracking-[0.3em] text-sand-700" data-reveal>flags</h2>
+  <h2 id="flags-title" class="text-center text-xs uppercase tracking-[0.3em] text-sand-600" data-reveal>flags</h2>
 
   <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {
@@ -29,7 +29,7 @@ const plans = await Promise.all(flags.map((f) => dryRun(f.line)));
             <div class="flip-face card flex flex-col justify-between p-6" data-glow>
               <div class="flex items-start justify-between">
                 <span class="text-4xl font-extrabold text-rust-500">{f.flag}</span>
-                <span class="text-3xl text-sand-700" aria-hidden="true">{f.glyph}</span>
+                <span class="text-3xl text-sand-600" aria-hidden="true">{f.glyph}</span>
               </div>
               <div>
                 <div class="text-lg font-semibold text-sand-50">{f.what}</div>

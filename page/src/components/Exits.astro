@@ -12,16 +12,16 @@ const rows = [
   { line: 'cargo q watch', code: 130, kind: 'int', key: '^C' },
 ];
 const color: Record<string, string> = {
-  ok: 'text-moss-400',
-  fail: 'text-ember-400',
-  int: 'text-amber-400',
+  ok: 'text-ok',
+  fail: 'text-fail',
+  int: 'text-warn',
 };
 ---
 
 <section class="mx-auto max-w-3xl px-4 pt-32" aria-labelledby="exits-title">
-  <h2 id="exits-title" class="text-center text-xs uppercase tracking-[0.3em] text-sand-700" data-reveal>echo $?</h2>
+  <h2 id="exits-title" class="text-center text-xs uppercase tracking-[0.3em] text-sand-600" data-reveal>echo $?</h2>
 
-  <div class="card mt-6 divide-y divide-white/5" data-glow data-reveal>
+  <div class="card mt-6 divide-y divide-sand-50/5" data-glow data-reveal>
     {
       rows.map((row, i) => (
         <button
@@ -33,7 +33,7 @@ const color: Record<string, string> = {
           <span class="run-arrow text-rust-500" aria-hidden="true">▶</span>
           <Line line={row.line} class="min-w-0 truncate" />
           {row.key && <span class="kbd">{row.key}</span>}
-          <span class="mx-1 h-px flex-1 border-t border-dashed border-white/10" aria-hidden="true" />
+          <span class="mx-1 h-px flex-1 border-t border-dashed border-sand-50/10" aria-hidden="true" />
           <span class={`text-xl font-bold tabular-nums sm:text-2xl ${color[row.kind]}`} data-odometer={row.code} data-delay={i * 120}>
             {row.code}
           </span>

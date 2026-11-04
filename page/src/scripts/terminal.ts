@@ -11,6 +11,7 @@ import { Shell } from './shell';
 import { SplitView } from './split-view';
 import { parser } from './wasm';
 import { burst } from './motion';
+import { PALETTE, ansi } from './palette';
 
 const host = document.querySelector<HTMLElement>('#terminal');
 const windowEl = document.querySelector<HTMLElement>('#term-window');
@@ -45,26 +46,26 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
     scrollback: 2000,
     theme: {
       background: '#00000000',
-      foreground: '#f0e9df',
-      cursor: '#f26b21',
-      cursorAccent: '#0e0c0a',
-      selectionBackground: '#9c3a1288',
-      black: '#16130f',
-      red: '#ff7b72',
-      green: '#7ee787',
-      yellow: '#e3b341',
-      blue: '#79c0ff',
-      magenta: '#d2a8ff',
-      cyan: '#56d4dd',
-      white: '#f0e9df',
-      brightBlack: '#5c5449',
-      brightRed: '#ffa198',
-      brightGreen: '#a5f0ab',
-      brightYellow: '#f2cc60',
-      brightBlue: '#a5d6ff',
-      brightMagenta: '#e2c5ff',
-      brightCyan: '#8be9f0',
-      brightWhite: '#faf6f0',
+      foreground: PALETTE.sand[100],
+      cursor: PALETTE.rust[500],
+      cursorAccent: PALETTE.ink[900],
+      selectionBackground: '#9c3a12aa',
+      black: PALETTE.ink[800],
+      red: PALETTE.status.fail,
+      green: PALETTE.status.ok,
+      yellow: PALETTE.status.warn,
+      blue: PALETTE.status.info,
+      magenta: PALETTE.ansi.magenta,
+      cyan: PALETTE.ansi.cyan,
+      white: PALETTE.sand[100],
+      brightBlack: PALETTE.sand[600],
+      brightRed: PALETTE.ansi.brightRed,
+      brightGreen: PALETTE.ansi.brightGreen,
+      brightYellow: PALETTE.ansi.brightYellow,
+      brightBlue: PALETTE.ansi.brightBlue,
+      brightMagenta: PALETTE.ansi.brightMagenta,
+      brightCyan: PALETTE.ansi.brightCyan,
+      brightWhite: PALETTE.sand[50],
     },
     allowTransparency: true,
   });
@@ -128,8 +129,8 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
   const start = (version: string | null) => {
     if (started) return;
     started = true;
-    const D = '\x1b[38;2;139;129;115m';
-    const O = '\x1b[38;2;242;107;33m';
+    const D = ansi(PALETTE.sand[500]);
+    const O = ansi(PALETTE.rust[500]);
     const R = '\x1b[0m';
     const v = version ? ` ${version}` : '';
     shell.start(

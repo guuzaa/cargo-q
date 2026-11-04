@@ -11,33 +11,30 @@ import { analyze, isCargoQ, PROGRAMS, type Analysis, type Role } from './analyze
 import { runCargo, runCargoQ, type Host, type RunOptions, type TaskState } from './simulate';
 import { segments, tokenize } from './tokens';
 import type { Inspection, Parser } from './wasm';
+import { PALETTE, ansi } from './palette';
 
 const R = '\x1b[0m';
-const rgb = (hex: string) => {
-  const n = parseInt(hex.slice(1), 16);
-  return `\x1b[38;2;${n >> 16};${(n >> 8) & 255};${n & 255}m`;
-};
 const C = {
-  rust: rgb('#f26b21'),
-  sand: rgb('#f0e9df'),
-  dim: rgb('#8b8173'),
-  ghost: rgb('#5c5449'),
-  moss: rgb('#7ee787'),
-  ember: rgb('#ff7b72'),
-  amber: rgb('#e3b341'),
-  sky: rgb('#79c0ff'),
-  peach: rgb('#ffb08a'),
+  rust: ansi(PALETTE.rust[500]),
+  sand: ansi(PALETTE.sand[100]),
+  dim: ansi(PALETTE.sand[500]),
+  ghost: ansi(PALETTE.sand[600]),
+  ok: ansi(PALETTE.status.ok),
+  fail: ansi(PALETTE.status.fail),
+  warn: ansi(PALETTE.status.warn),
+  info: ansi(PALETTE.status.info),
+  peach: ansi(PALETTE.rust[300]),
 };
 
 const ROLE: Record<Role, string> = {
   program: `\x1b[1m${C.sand}`,
   sub: `\x1b[1m${C.rust}`,
-  option: C.amber,
-  command: `\x1b[1m${C.moss}`,
-  arg: C.sky,
-  error: `\x1b[4m${C.ember}`,
+  option: C.warn,
+  command: `\x1b[1m${C.ok}`,
+  arg: C.info,
+  error: `\x1b[4m${C.fail}`,
   after: C.dim,
-  unknown: C.ember,
+  unknown: C.fail,
   word: C.sand,
   op: C.peach,
 };
@@ -332,7 +329,7 @@ export class Shell {
   }
 
   private promptText(): string {
-    const mark = this.status === 0 ? C.moss : C.ember;
+    const mark = this.status === 0 ? C.ok : C.fail;
     return `${C.rust}~/hello-q${R} ${mark}❯${R} `;
   }
 
@@ -457,11 +454,11 @@ export class Shell {
         this.out('/home/you/hello-q');
         return { code: 0, cargoQ: false };
       case 'ls':
-        this.out(`${C.sand}Cargo.lock  Cargo.toml${R}  ${C.sky}\x1b[1msrc  target  tests${R}`);
+        this.out(`${C.sand}Cargo.lock  Cargo.toml${R}  ${C.info}\x1b[1msrc  target  tests${R}`);
         return { code: 0, cargoQ: false };
       case 'cat':
         if (args[0] === 'Cargo.toml') {
-          this.out(`${C.peach}[package]${R}\nname = ${C.moss}"hello-q"${R}\nversion = ${C.moss}"0.1.0"${R}\nedition = ${C.moss}"2021"${R}\n\n${C.peach}[dependencies]${R}\nlexopt = ${C.moss}"0.3"${R}`);
+          this.out(`${C.peach}[package]${R}\nname = ${C.ok}"hello-q"${R}\nversion = ${C.ok}"0.1.0"${R}\nedition = ${C.ok}"2021"${R}\n\n${C.peach}[dependencies]${R}\nlexopt = ${C.ok}"0.3"${R}`);
           return { code: 0, cargoQ: false };
         }
         this.out(`cat: ${args[0] ?? ''}: No such file or directory`);
