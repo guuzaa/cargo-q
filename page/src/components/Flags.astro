@@ -10,7 +10,7 @@ import { dryRun } from '../lib/parser';
 const flags = [
   { flag: '-k', long: '--keep-going', what: 'keep going', glyph: '↷', line: 'cargo q -k test build' },
   { flag: '-p', long: '--parallel', what: 'all at once', glyph: '∥', line: 'cargo q -p check clippy doc' },
-  { flag: '-n', long: '--dry-run', what: 'look first', glyph: '?', line: 'cargo q -n build --features test' },
+  { flag: '-n', long: '--dry-run', what: 'look first', glyph: '?', line: 'cargo q -n build --features=foo' },
   { flag: '-v', long: '--verbose', what: 'watch cargo', glyph: '≡', line: 'cargo q -v check run' },
   { flag: '--repeat', long: '--repeat <N>', what: 'N rounds', glyph: '×', line: 'cargo q --repeat 3 check' },
   { flag: '--no-fancy', long: 'for agents & CI', what: 'plain lines', glyph: '⌁', line: 'cargo q --no-fancy fmt check test' },

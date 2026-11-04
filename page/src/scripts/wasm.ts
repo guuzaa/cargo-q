@@ -96,6 +96,15 @@ async function load(): Promise<Parser> {
   return fromBytes(await response.arrayBuffer());
 }
 
+/**
+ * How many lines the parser remembers.
+ *
+ * The same line is asked about over and over: the shell asks again on every
+ * keystroke, and each keystroke asks about every prefix of the line. The
+ * answers never change, so they are kept.
+ */
+const CACHE_LIMIT = 256;
+
 /** The parser, from the bytes of the module (the build reads them from disk). */
 export async function fromBytes(bytes: ArrayBuffer | Uint8Array<ArrayBuffer>): Promise<Parser> {
   // `compile` and `Instance` rather than `instantiate`: the Workers types the
@@ -115,13 +124,30 @@ export async function fromBytes(bytes: ArrayBuffer | Uint8Array<ArrayBuffer>): P
   const wellKnown = get(api.cq_well_known(), api.cq_well_known_len()).split('\0').filter(Boolean);
   api.cq_set_names(put(EXTRA_NAMES.join('\0')));
 
+  /** The answers so far, by the line they are about. */
+  const cache = new Map<string, Inspection>();
+
+  const inspect = (argv: string[]): Inspection => {
+    // A token cannot hold a NUL — the module's own protocol ends a token
+    // with one — so the words joined by a NUL name the line exactly.
+    const key = argv.join('\0');
+    const known = cache.get(key);
+    if (known) return known;
+
+    // Each token ends in a NUL, so an empty token (`""`) is still a token.
+    const length = put(argv.map((arg) => `${arg}\0`).join(''));
+    const pointer = api.cq_inspect(length);
+    const inspection = JSON.parse(get(pointer, api.cq_result_len())) as Inspection;
+
+    // The oldest answer goes first: the lines being typed are the recent
+    // ones.
+    if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
+    cache.set(key, inspection);
+    return inspection;
+  };
+
   return {
-    inspect(argv) {
-      // Each token ends in a NUL, so an empty token (`""`) is still a token.
-      const length = put(argv.map((arg) => `${arg}\0`).join(''));
-      const pointer = api.cq_inspect(length);
-      return JSON.parse(get(pointer, api.cq_result_len())) as Inspection;
-    },
+    inspect,
     names: [...wellKnown, ...EXTRA_NAMES].sort(),
     version: get(api.cq_version(), api.cq_version_len()),
     size: bytes.byteLength,

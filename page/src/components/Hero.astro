@@ -7,7 +7,7 @@ const presets = [
   { line: 'cargo q -k test build', mark: '↷' },
   { line: 'cargo q -p check clippy doc', mark: '∥' },
   { line: 'cargo q --repeat 3 check', mark: '×' },
-  { line: 'cargo q -n build --features test', mark: '?' },
+  { line: 'cargo q -n build --features=foo', mark: '?' },
   { line: 'cargo q build --features feature1', mark: '✗' },
   { line: 'cargo q -v run', mark: '≡' },
 ];

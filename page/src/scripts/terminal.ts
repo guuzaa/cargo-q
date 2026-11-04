@@ -26,7 +26,7 @@ const PRESETS = [
   'cargo q -k test build',
   'cargo q -p check clippy doc',
   'cargo q --repeat 3 check',
-  'cargo q -n build --features test',
+  'cargo q -n build --features=foo',
   'cargo q build --features feature1',
   'cargo q -v run',
   'cargo q watch',
