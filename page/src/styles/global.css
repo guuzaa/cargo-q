@@ -130,17 +130,21 @@
 /* ------------------------------------------------------------------ */
 /* Reveal on scroll.                                                   */
 
-[data-reveal] {
-  opacity: 0;
-  transform: translateY(18px);
-  transition:
-    opacity 0.7s var(--ease-snap),
-    transform 0.7s var(--ease-snap);
-  transition-delay: calc(var(--i, 0) * 80ms);
-}
-[data-reveal][data-shown] {
-  opacity: 1;
-  transform: none;
+/* The fade only applies where scripting is on: a browser without it
+   never sets `data-shown`, and the text is there either way. */
+@media (scripting: enabled) {
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.7s var(--ease-snap),
+      transform 0.7s var(--ease-snap);
+    transition-delay: calc(var(--i, 0) * 80ms);
+  }
+  [data-reveal][data-shown] {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ------------------------------------------------------------------ */
