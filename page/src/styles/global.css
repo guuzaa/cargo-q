@@ -644,6 +644,13 @@
 .fold {
   white-space: nowrap;
 }
+.fold .gone,
+.fold .came {
+  /* A piece keeps the space in front of it. An inline block lays its
+     content out as a block, and a space at the start of a line is removed
+     unless the white space is preserved. */
+  white-space: pre;
+}
 .fold .gone {
   display: inline-block;
   overflow: hidden;
