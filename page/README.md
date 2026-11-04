@@ -85,4 +85,6 @@ rsvg-convert -w 1200 -h 630 og/card.svg -o public/og.png
 ```
 
 The renderer takes the font from the system: the card names JetBrains Mono
-first and falls back to DejaVu Sans Mono.
+first and falls back to DejaVu Sans Mono. The published card is in the
+fallback — the machine that rendered it had no JetBrains Mono — so a machine
+that has JetBrains Mono renders a card in another typeface.

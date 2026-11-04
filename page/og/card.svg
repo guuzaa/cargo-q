@@ -26,6 +26,6 @@
     <text x="80" y="572" font-size="30" font-weight="700">
       <tspan fill="#f26b21">cargo</tspan><tspan fill="#f0e9df">-q</tspan>
     </text>
-    <text x="1120" y="572" font-size="24" text-anchor="end" fill="#8b8173">cargo-q.dev</text>
+    <text x="1120" y="572" font-size="24" text-anchor="end" fill="#8b8173">crates.io/crates/cargo-q</text>
   </g>
 </svg>
