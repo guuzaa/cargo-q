@@ -40,7 +40,7 @@ const OK = '\x1b[1;32m';
 const ERR = '\x1b[1;31m';
 
 const TICK = 80;
-const ROOT = '/home/you/hello-q';
+const ROOT = '/home/you/cargo-q';
 
 interface Script {
   /** How long it takes, in milliseconds. */
@@ -52,7 +52,7 @@ interface Script {
 }
 
 const verb = (word: string, rest: string) => `${OK}${word.padStart(12)}${R} ${rest}`;
-const compiling = verb('Compiling', `hello-q v0.1.0 (${ROOT})`);
+const compiling = verb('Compiling', `cargo-q v0.1.0 (${ROOT})`);
 const finished = (profile: string, ms: number) =>
   verb('Finished', `\`${profile}\` profile [${profile === 'release' || profile === 'bench' ? 'optimized' : 'unoptimized + debuginfo'}] target(s) in ${(ms / 1000).toFixed(2)}s`);
 
@@ -96,7 +96,7 @@ export function script(command: Command): Script {
     case 'check':
     case 'clippy': {
       const d = jitter(name === 'check' ? 900 : 1300);
-      return { duration: d, code: 0, lines: [verb('Checking', `hello-q v0.1.0 (${ROOT})`), finished('dev', d)] };
+      return { duration: d, code: 0, lines: [verb('Checking', `cargo-q v0.1.0 (${ROOT})`), finished('dev', d)] };
     }
     case 'build': {
       const d = jitter(release ? 2100 : 1500);
@@ -107,7 +107,7 @@ export function script(command: Command): Script {
       return {
         duration: d,
         code: 0,
-        lines: [verb('Documenting', 'hello-q v0.1.0'), finished('dev', d), verb('Generated', `${ROOT}/target/doc/hello_q/index.html`)],
+        lines: [verb('Documenting', 'cargo-q v0.1.0'), finished('dev', d), verb('Generated', `${ROOT}/target/doc/hello_q/index.html`)],
       };
     }
     case 'run': {
@@ -115,13 +115,13 @@ export function script(command: Command): Script {
       return {
         duration: d,
         code: 0,
-        lines: [compiling, finished('dev', d), verb('Running', '`target/debug/hello-q`'), 'Hello, world!'],
+        lines: [compiling, finished('dev', d), verb('Running', '`target/debug/cargo-q`'), 'Hello, world!'],
       };
     }
     case 'clean':
       return { duration: jitter(260), code: 0, lines: [verb('Removed', '312 files, 48.2MiB total')] };
     case 'tree':
-      return { duration: jitter(300), code: 0, lines: [`hello-q v0.1.0 (${ROOT})`, '└── lexopt v0.3.1'] };
+      return { duration: jitter(300), code: 0, lines: [`cargo-q v0.1.0 (${ROOT})`, '└── lexopt v0.3.1'] };
     case 'update':
       return {
         duration: jitter(700),
@@ -138,7 +138,7 @@ export function script(command: Command): Script {
     }
     case 'watch':
       // It never ends on its own: Ctrl-C is the way out.
-      return { duration: Number.POSITIVE_INFINITY, code: 0, lines: [`${BOLD}[Running 'cargo check']${R}`, verb('Checking', `hello-q v0.1.0 (${ROOT})`), `${BOLD}[Finished running. Exit status: 0]${R}`] };
+      return { duration: Number.POSITIVE_INFINITY, code: 0, lines: [`${BOLD}[Running 'cargo check']${R}`, verb('Checking', `cargo-q v0.1.0 (${ROOT})`), `${BOLD}[Finished running. Exit status: 0]${R}`] };
     case 'test':
       return args.includes('--no-run') ? testBuild() : testFailure();
     case 'nextest':
@@ -149,9 +149,9 @@ export function script(command: Command): Script {
           compiling,
           finished('test', 1100),
           `${OK}    Starting${R} 3 tests across 1 binary`,
-          `${OK}        PASS${R} [   0.002s] hello-q tests::adds`,
-          `${OK}        PASS${R} [   0.002s] hello-q tests::parses`,
-          `${ERR}        FAIL${R} [   0.003s] hello-q tests::multiplies`,
+          `${OK}        PASS${R} [   0.002s] cargo-q tests::adds`,
+          `${OK}        PASS${R} [   0.002s] cargo-q tests::parses`,
+          `${ERR}        FAIL${R} [   0.003s] cargo-q tests::multiplies`,
           `${ERR}error${R}: test run failed`,
         ],
       };

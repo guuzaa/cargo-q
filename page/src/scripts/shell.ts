@@ -39,7 +39,7 @@ const ROLE: Record<Role, string> = {
   op: C.peach,
 };
 
-const PROMPT_TEXT = '~/hello-q ❯ ';
+const PROMPT_TEXT = '~/cargo-q ❯ ';
 
 const CARGOQ_FLAGS = ['--verbose', '--parallel', '--keep-going', '--dry-run', '--no-fancy', '--repeat', '--help', '--version'];
 const CARGO_FLAGS = ['--release', '--no-run', '--all-targets', '--workspace', '--check', '--features=', '--lib', '--locked', '--quiet'];
@@ -390,7 +390,7 @@ export class Shell {
 
   private promptText(): string {
     const mark = this.status === 0 ? C.ok : C.fail;
-    return `${C.rust}~/hello-q${R} ${mark}❯${R} `;
+    return `${C.rust}~/cargo-q${R} ${mark}❯${R} `;
   }
 
   /**
@@ -511,14 +511,14 @@ export class Shell {
         this.out(this.history.map((h, i) => `${C.dim}${String(i + 1).padStart(4)}${R}  ${h}`).join('\n'));
         return { code: 0, cargoQ: false };
       case 'pwd':
-        this.out('/home/you/hello-q');
+        this.out('/home/you/cargo-q');
         return { code: 0, cargoQ: false };
       case 'ls':
         this.out(`${C.sand}Cargo.lock  Cargo.toml${R}  ${C.info}\x1b[1msrc  target  tests${R}`);
         return { code: 0, cargoQ: false };
       case 'cat':
         if (args[0] === 'Cargo.toml') {
-          this.out(`${C.peach}[package]${R}\nname = ${C.ok}"hello-q"${R}\nversion = ${C.ok}"0.1.0"${R}\nedition = ${C.ok}"2021"${R}\n\n${C.peach}[dependencies]${R}\nlexopt = ${C.ok}"0.3"${R}`);
+          this.out(`${C.peach}[package]${R}\nname = ${C.ok}"cargo-q"${R}\nversion = ${C.ok}"0.1.0"${R}\nedition = ${C.ok}"2021"${R}\n\n${C.peach}[dependencies]${R}\nlexopt = ${C.ok}"0.3"${R}`);
           return { code: 0, cargoQ: false };
         }
         this.out(`cat: ${args[0] ?? ''}: No such file or directory`);
