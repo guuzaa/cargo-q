@@ -37,31 +37,31 @@ impl Cli {
     /// Show each command's output as it runs.
     #[must_use]
     pub fn verbose(&self) -> bool {
-        self.flags.contains(&Flag::Verbose)
+        self.settings().verbose
     }
 
     /// Run all commands at once instead of one after another (experimental).
     #[must_use]
     pub fn parallel(&self) -> bool {
-        self.flags.contains(&Flag::Parallel)
+        self.settings().parallel
     }
 
     /// Keep running the remaining commands after one fails.
     #[must_use]
     pub fn keep_going(&self) -> bool {
-        self.flags.contains(&Flag::KeepGoing)
+        self.settings().keep_going
     }
 
     /// Print the commands that would run, without running them.
     #[must_use]
     pub fn dry_run(&self) -> bool {
-        self.flags.contains(&Flag::DryRun)
+        self.settings().dry_run
     }
 
     /// Print plain output, without the overprinting status display.
     #[must_use]
     pub fn no_fancy(&self) -> bool {
-        self.flags.contains(&Flag::NoFancy)
+        self.settings().no_fancy
     }
 
     /// How many times the whole list runs.
@@ -94,20 +94,14 @@ impl Cli {
     /// way a run would split them, so a caller can show what an invocation
     /// does before it does it.
     ///
-    /// A line cargo-q would reject is reported in [`Inspection::error`],
-    /// with the message a run would print.
-    #[must_use]
-    pub fn inspect(args: impl IntoIterator<Item = OsString>) -> Inspection {
-        Self::inspect_with(args, &Subcommands::new())
-    }
-
-    /// Like [`Self::inspect`], but with an explicit set of known cargo
-    /// subcommand names.
-    ///
-    /// For a caller that cannot ask cargo: one that has no cargo to ask, or
+    /// The known cargo subcommand names are the caller's, so a caller that
+    /// cannot ask cargo can use this too: one that has no cargo to ask, or
     /// one that runs where cargo cannot be started. The split is then the
     /// one a cargo would make whose subcommands are cargo-q's well-known
     /// names plus these (see [`Subcommands::with_names`]).
+    ///
+    /// A line cargo-q would reject is reported in [`Inspection::error`],
+    /// with the message a run would print.
     #[must_use]
     pub fn inspect_with(
         args: impl IntoIterator<Item = OsString>,
@@ -156,10 +150,7 @@ impl Cli {
         let options = self
             .flags
             .iter()
-            .map(|flag| match flag {
-                Flag::Repeat => format!("--repeat {}", self.repeat.unwrap_or(1)),
-                other => other.usage().to_string(),
-            })
+            .map(|flag| flag.given(self.repeat.unwrap_or(1)))
             .collect();
 
         let settings = self.settings();
@@ -193,27 +184,38 @@ impl Cli {
         }
     }
 
-    /// The options, as the structured form of [`Inspection::settings`].
+    /// The options, as values.
+    ///
+    /// This is the one place that says what an option means: every option
+    /// the parser knows, but `--help` and `--version`, sets one field here.
+    /// Adding an option means adding it here too, or the compiler says so.
     fn settings(&self) -> Settings {
-        Settings {
-            verbose: self.verbose(),
-            parallel: self.parallel(),
-            keep_going: self.keep_going(),
-            dry_run: self.dry_run(),
-            no_fancy: self.no_fancy(),
-            repeat: self.repeat.unwrap_or(1),
+        let mut settings = Settings::default();
+        for flag in &self.flags {
+            match flag {
+                Flag::Verbose => settings.verbose = true,
+                Flag::Parallel => settings.parallel = true,
+                Flag::KeepGoing => settings.keep_going = true,
+                Flag::DryRun => settings.dry_run = true,
+                Flag::NoFancy => settings.no_fancy = true,
+                Flag::Repeat => settings.repeat = self.repeat.unwrap_or(1),
+                // These end the parsing, so they set nothing.
+                Flag::Help(_) | Flag::Version => {}
+            }
         }
+        settings
     }
 
     /// How `run` would run the commands.
     fn run_options(&self) -> Options {
+        let settings = self.settings();
         Options {
-            verbose: self.verbose(),
-            parallel: self.parallel(),
-            keep_going: self.keep_going(),
-            dry_run: self.dry_run(),
-            fancy: !self.no_fancy(),
-            repeat: self.repeat.unwrap_or(1),
+            verbose: settings.verbose,
+            parallel: settings.parallel,
+            keep_going: settings.keep_going,
+            dry_run: settings.dry_run,
+            fancy: !settings.no_fancy,
+            repeat: settings.repeat,
         }
     }
 
@@ -499,6 +501,15 @@ impl Flag {
             Flag::Help(Help::Short) => "-h",
             Flag::Help(Help::Long) => "--help",
             Flag::Version => "--version",
+        }
+    }
+
+    /// The option as it was given: the usage line, with the value of
+    /// `--repeat` filled in.
+    fn given(self, repeat: u32) -> String {
+        match self {
+            Flag::Repeat => format!("--repeat {repeat}"),
+            other => other.usage().to_string(),
         }
     }
 

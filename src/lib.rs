@@ -16,9 +16,7 @@ pub mod process;
 pub mod progress;
 pub mod routine;
 pub mod strategy;
-mod subcommand;
-
-pub use crate::subcommand::Subcommands;
+pub mod subcommand;
 
 /// The version of cargo-q this crate was built from.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

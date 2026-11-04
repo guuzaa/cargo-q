@@ -27,7 +27,7 @@ pub(super) fn print_help(help: Help) -> ! {
 
 /// Print the version, then end the process.
 pub(super) fn print_version() -> ! {
-    println!("cargo-q {}", env!("CARGO_PKG_VERSION"));
+    println!("cargo-q {}", crate::VERSION);
     std::process::exit(0);
 }
 

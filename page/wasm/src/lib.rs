@@ -10,7 +10,7 @@
 //! owns, calls one function, and reads the answer back out.
 
 use cargo_q::cli::Cli;
-use cargo_q::Subcommands;
+use cargo_q::subcommand::Subcommands;
 use std::ffi::OsString;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};

@@ -3,9 +3,9 @@
 ## [Unreleased]
 ### Added
 - The library builds for `wasm32-unknown-unknown` now. A browser has no processes to spawn and no signals to catch, so the wasm32 build parses a command line and says what it means, but cannot run it. The landing page of cargo-q uses this: the parser it shows is this code, so the page and a real run always agree.
-- `Cli::inspect` and `Cli::inspect_with` say what a command line means, without running it: cargo-q's own options and the commands the line was split into. A line that asks for the help or for the version says so, too. `Cli::inspect` asks cargo which subcommands it knows; `Cli::inspect_with` takes the answer, for a caller that cannot ask cargo.
+- `Cli::inspect_with` says what a command line means, without running it: cargo-q's own options and the commands the line was split into. A line that asks for the help or for the version says so, too. The known cargo subcommand names are the caller's, so a caller that cannot ask cargo can use it as well; `Subcommands::new()` is the answer of a cargo that can.
 - `Inspection` carries more of what a run decides, so a caller does not repeat it: `settings` is the options as values (`Settings`), `plan` is the text `--dry-run` prints, and `exit_code` is the code the process ends with right away (0 for the help and the version, 2 for a line the option parser rejects, 1 for a command it cannot split). `Cli::inspect_argv_with` takes the whole command line, program name included, and drops the `q` that names the subcommand the way a run does.
-- `Subcommands::with_names` builds a lookup over an explicit set of names, and `Subcommands::well_known` returns the names cargo-q knows without asking cargo at all.
+- `Subcommands::with_names` builds a lookup over an explicit set of names, and `Subcommands::well_known` returns the names cargo-q knows without asking cargo at all. The type lives in the `subcommand` module, which is public now: `cargo_q::subcommand::Subcommands`.
 - `Routine::name` and `Routine::args` read a parsed command: its name and its arguments.
 - `cargo_q::VERSION` is the version of cargo-q the crate was built from.
 

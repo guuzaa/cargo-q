@@ -374,6 +374,46 @@ fn inspection_lists_the_options() {
     assert!(inspection.error.is_none());
 }
 
+/// The text of the options and their values say the same thing.
+#[test]
+fn the_options_and_the_settings_agree() {
+    let known = Subcommands::with_names(&["check"]);
+    let inspection = Cli::inspect_with(
+        os_args(&["-v", "-p", "-k", "-n", "--no-fancy", "check"]),
+        &known,
+    );
+    assert_eq!(
+        inspection.options,
+        [
+            "--verbose",
+            "--parallel",
+            "--keep-going",
+            "--dry-run",
+            "--no-fancy",
+        ]
+    );
+    assert_eq!(
+        inspection.settings,
+        Settings {
+            verbose: true,
+            parallel: true,
+            keep_going: true,
+            dry_run: true,
+            no_fancy: true,
+            repeat: 1,
+        }
+    );
+}
+
+/// The round count is an option with a value, in both forms.
+#[test]
+fn the_repeat_option_carries_its_value() {
+    let known = Subcommands::with_names(&["check"]);
+    let inspection = Cli::inspect_with(os_args(&["--repeat", "3", "check"]), &known);
+    assert_eq!(inspection.options, ["--repeat 3"]);
+    assert_eq!(inspection.settings.repeat, 3);
+}
+
 #[test]
 fn inspection_reports_an_unknown_token() {
     let known = Subcommands::with_names(&["check"]);
