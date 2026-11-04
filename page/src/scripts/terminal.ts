@@ -84,7 +84,6 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
 
   const flash = (state: string) => {
     windowEl.dataset.state = state;
-    if (state === 'busy') return;
     setTimeout(() => {
       if (windowEl.dataset.state === state) delete windowEl.dataset.state;
     }, 1400);
@@ -95,10 +94,7 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
     ready,
     {
       input: (analysis) => view.input(analysis),
-      run: (inspection) => {
-        flash('busy');
-        view.run(inspection);
-      },
+      run: (inspection) => view.run(inspection),
       task: (index, state, round) => view.task(index, state, round),
       exit: (code, cargoQ) => {
         setExit(code);
@@ -106,10 +102,6 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
         view.done();
         flash(code === 0 ? 'ok' : code === 130 ? 'int' : 'fail');
         if (code === 0 && !reduced) burst(exitEl);
-      },
-      busy: (busy) => {
-        if (!busy && windowEl.dataset.state === 'busy') delete windowEl.dataset.state;
-        document.body.toggleAttribute('data-running', busy);
       },
     },
     PRESETS,

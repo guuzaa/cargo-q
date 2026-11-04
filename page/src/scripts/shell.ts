@@ -53,7 +53,6 @@ export interface ShellEvents {
   run(inspection: Inspection, options: RunOptions): void;
   task(index: number, state: TaskState, round: number): void;
   exit(code: number, ranCargoQ: boolean): void;
-  busy(busy: boolean): void;
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -393,12 +392,10 @@ export class Shell {
       this.idle = new Promise((resolve) => (release = resolve));
       this.busy = true;
       this.interrupted = false;
-      this.events.busy(true);
       try {
         await this.execute(line);
       } finally {
         this.busy = false;
-        this.events.busy(false);
         release();
       }
     }

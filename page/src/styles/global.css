@@ -167,7 +167,7 @@
   transition: box-shadow 0.4s ease;
   isolation: isolate;
 }
-/* The border: a light that follows the pointer, or spins while a run is on. */
+/* The border: a light that follows the pointer. */
 .term-window::before {
   content: '';
   position: absolute;
@@ -185,28 +185,6 @@
   mask-composite: exclude;
   pointer-events: none;
   z-index: 1;
-}
-@property --spin {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-.term-window[data-state='busy']::before {
-  padding: 1.5px;
-  background: conic-gradient(
-    from var(--spin),
-    transparent 0deg,
-    var(--color-rust-500) 60deg,
-    var(--color-amber-400) 100deg,
-    transparent 160deg,
-    transparent 360deg
-  );
-  animation: spin 1.6s linear infinite;
-}
-@keyframes spin {
-  to {
-    --spin: 360deg;
-  }
 }
 .term-window[data-state='ok'] {
   box-shadow:
