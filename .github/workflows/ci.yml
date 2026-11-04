@@ -47,18 +47,14 @@ jobs:
       if: matrix.os != 'windows-latest'
       run: cargo clippy -- -D warnings
 
-  wasm:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v7
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: wasm32-unknown-unknown
+    - name: Install the wasm32 target
+      if: matrix.os == 'ubuntu-latest'
+      run: rustup target add wasm32-unknown-unknown
 
     - name: Check the wasm32 build
+      if: matrix.os == 'ubuntu-latest'
       run: cargo check --target wasm32-unknown-unknown
 
     - name: Run clippy on the wasm32 build
+      if: matrix.os == 'ubuntu-latest'
       run: cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings
