@@ -2,23 +2,15 @@
 
 ## [Unreleased]
 ### Added
-- The library builds for `wasm32-unknown-unknown` now. A browser has no processes to spawn and no signals to catch, so the wasm32 build parses a command line and says what it means, but cannot run it. The landing page of cargo-q uses this: the parser it shows is this code, so the page and a real run always agree.
+- The library builds for `wasm32-unknown-unknown` now. A browser has no processes to spawn and no signals to catch, so the wasm32 build parses a command line and says what it means, but cannot run it.
 - `Cli::inspect_with` says what a command line means, without running it: cargo-q's own options and the commands the line was split into. A line that asks for the help or for the version says so, too. The known cargo subcommand names are the caller's, so a caller that cannot ask cargo can use it as well; `Subcommands::new()` is the answer of a cargo that can.
 - `Inspection` carries more of what a run decides, so a caller does not repeat it: `settings` is the options as values (`Settings`), `plan` is the text `--dry-run` prints, and `exit_code` is the code the process ends with right away (0 for the help and the version, 2 for a line the option parser rejects, 1 for a command it cannot split). `Cli::inspect_argv_with` takes the whole command line, program name included, and drops the `q` that names the subcommand the way a run does.
 - `Subcommands::with_names` builds a lookup over an explicit set of names, and `Subcommands::well_known` returns the names cargo-q knows without asking cargo at all. The type lives in the `subcommand` module, which is public now: `cargo_q::subcommand::Subcommands`.
 - `Routine::name` and `Routine::args` read a parsed command: its name and its arguments.
 - `cargo_q::VERSION` is the version of cargo-q the crate was built from.
 
-### Fixed
-- The terminal on the landing page can be edited again. The gray suggestion it draws after the cursor is the rest of a line the shell knows, and it was drawn after every keystroke: a backspace shortened the line, but the suggestion filled it back in, so what a tab had completed could not be erased. A deletion now drops the suggestion, and a tab completion replaces it: the completion is the answer, the suggestion is only a guess. Typing offers the suggestion again, as does the key that accepts it.
-- The candidates a tab shows are a menu now, not a line of the terminal's history. They are drawn under the prompt and are gone with the next keystroke, which erases everything under the prompt with them. They used to be printed above the prompt, where they stayed for good: there was no way to take that list of commands away. A menu that is taller than the screen says how many candidates it left out.
-
 ### Changed
-- The social card of the landing page names the crate on crates.io now, not the site: `crates.io/crates/cargo-q`.
-- The landing page lives at <https://cargo-q.paulden.site> now: the canonical link, the social card's URL and the address the Worker answers on all follow it.
-- The Worker no longer answers `/api/version`. The page is static, and the version on crates.io was the one thing it had to ask for at runtime, so the Worker now only hands the requests to the assets. The page shows no version any more: the install line ends at `Rust ≥ 1.75 · Linux · macOS · Windows`, and the nav bar has no badge next to the name.
-- The landing page's one-line fold sits under the tagline now, as a single line instead of the big card that used to follow the terminal; its character counts are gone. The terminal follows right after it and is shorter than before, so the demo starts in the first screen. The fold still plays once when the page opens (a click folds or unfolds it) instead of looping.
-- The fold reads on a phone now. A narrow screen gets a shorter example — `cargo fmt && cargo test` instead of the chain of four commands — so the line can be read instead of being ten pixels tall. The terminal sits a little lower under the hero, the presets under it are four instead of seven, and the nav bar points at the playground instead of at docs.rs.
+- The published crate leaves the site out: the `exclude` list in `Cargo.toml` has the landing page in it now, so what crates.io serves is the library and the binary.
 
 ## [0.7.1] - 2026-11-01
 ### Fixed
