@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- The social card (og:image). Rendered to public/og.png; see README.md. -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="-15%" r="75%">
+      <stop offset="0" stop-color="#f26b21" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#f26b21" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#090807"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <g font-family="'JetBrains Mono', 'DejaVu Sans Mono', monospace">
+    <text x="80" y="128" font-size="22" letter-spacing="6" fill="#f26b21">A CARGO SUBCOMMAND</text>
+    <text x="80" y="226" font-size="76" font-weight="700" fill="#faf6f0">Run Cargo only once.</text>
+    <text x="80" y="292" font-size="28" fill="#c3b8a8">Many Cargo commands, just one invocation.</text>
+
+    <rect x="80" y="352" width="1040" height="150" rx="16" fill="#100e0c" stroke="#2b251e" stroke-width="2"/>
+    <circle cx="112" cy="384" r="7" fill="#3d352b"/>
+    <circle cx="136" cy="384" r="7" fill="#3d352b"/>
+    <circle cx="160" cy="384" r="7" fill="#3d352b"/>
+    <line x1="80" y1="414" x2="1120" y2="414" stroke="#2b251e" stroke-width="2"/>
+    <!-- Two monospace cells (0.6em each) after the prompt: a space in SVG text collapses. -->
+    <text y="468" font-size="32"><tspan x="112" fill="#f26b21">$</tspan><tspan x="150.4" fill="#f0e9df">cargo q fmt clippy check test</tspan></text>
+
+    <text x="80" y="572" font-size="30" font-weight="700">
+      <tspan fill="#f26b21">cargo</tspan><tspan fill="#f0e9df">-q</tspan>
+    </text>
+    <text x="1120" y="572" font-size="24" text-anchor="end" fill="#8b8173">crates.io/crates/cargo-q</text>
+  </g>
+</svg>

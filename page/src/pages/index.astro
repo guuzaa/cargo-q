@@ -1,0 +1,23 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Hero from '../components/Hero.astro';
+import Terminal from '../components/Terminal.astro';
+import Flags from '../components/Flags.astro';
+import Exits from '../components/Exits.astro';
+import Install from '../components/Install.astro';
+---
+
+<Layout
+  title="cargo-q · Run Cargo only once"
+  description="Run several Cargo commands in one invocation, stop at the first failure, and exit with its code."
+>
+  <Nav />
+  <main>
+    <Hero />
+    <Terminal />
+    <Flags />
+    <Exits />
+    <Install />
+  </main>
+</Layout>

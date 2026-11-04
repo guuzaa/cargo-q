@@ -74,11 +74,39 @@ impl Subcommands {
         Self::default()
     }
 
-    /// A lookup over an explicit set, for tests.
+    /// The names cargo-q knows without asking cargo.
     ///
-    /// `None` is a lookup that never consulted cargo.
+    /// Cargo's built-in subcommands, plus `clippy` and `fmt`. A caller that
+    /// cannot ask cargo can still say these are commands.
+    #[must_use]
+    pub fn well_known() -> &'static [&'static str] {
+        WELL_KNOWN
+    }
+
+    /// A lookup over an explicit set of names.
+    ///
+    /// For a caller that cannot ask cargo: one that has no cargo to ask, or
+    /// one that runs where cargo cannot be started. The names in
+    /// [`Self::well_known`] are always commands; besides those, a name in
+    /// the set is a command and every other name is not. That is the answer
+    /// a cargo would give whose extra subcommands are exactly these.
+    #[must_use]
+    pub fn with_names(names: &[&str]) -> Self {
+        Self::lookup(Some(names))
+    }
+
+    /// A lookup that knows no name beyond the well-known ones, for tests.
+    ///
+    /// It never consults cargo, so it cannot answer for any other name:
+    /// that is what a lookup over a cargo that could not be started says.
     #[cfg(test)]
-    pub fn from_names(names: Option<&[&str]>) -> Self {
+    pub fn undetermined() -> Self {
+        Self::lookup(None)
+    }
+
+    /// A lookup over an explicit set of names, or one that never consulted
+    /// cargo when there is no set.
+    fn lookup(names: Option<&[&str]>) -> Self {
         let discovered = OnceLock::new();
         let _ =
             discovered.set(names.map(|names| names.iter().copied().map(str::to_owned).collect()));
@@ -150,8 +178,8 @@ mod tests {
     }
 
     #[test]
-    fn from_names_is_a_plain_lookup() {
-        let known = Subcommands::from_names(Some(&["nextest"]));
+    fn with_names_is_a_plain_lookup() {
+        let known = Subcommands::with_names(&["nextest"]);
         assert_eq!(known.is_known(OsStr::new("nextest")), Some(true));
         assert_eq!(known.is_known(OsStr::new("check")), Some(true));
         assert_eq!(known.is_known(OsStr::new("f1")), Some(false));
@@ -159,7 +187,7 @@ mod tests {
 
     #[test]
     fn undetermined_lookup_answers_nothing() {
-        let known = Subcommands::from_names(None);
+        let known = Subcommands::undetermined();
         assert_eq!(known.is_known(OsStr::new("nextest")), None);
         assert_eq!(known.is_known(OsStr::new("f1")), None);
         // Built-ins are still recognized without cargo.

@@ -9,19 +9,25 @@ pub(super) enum Help {
     Long,
 }
 
+impl Help {
+    /// The text of the help: the summary, or the full text.
+    pub(super) fn text(self) -> &'static str {
+        match self {
+            Help::Short => HELP_SHORT,
+            Help::Long => HELP_LONG,
+        }
+    }
+}
+
 /// Print the help text, then end the process.
 pub(super) fn print_help(help: Help) -> ! {
-    let text = match help {
-        Help::Short => HELP_SHORT,
-        Help::Long => HELP_LONG,
-    };
-    print!("{text}");
+    print!("{}", help.text());
     std::process::exit(0);
 }
 
 /// Print the version, then end the process.
 pub(super) fn print_version() -> ! {
-    println!("cargo-q {}", env!("CARGO_PKG_VERSION"));
+    println!("cargo-q {}", crate::VERSION);
     std::process::exit(0);
 }
 

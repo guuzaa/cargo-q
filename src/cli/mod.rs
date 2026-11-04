@@ -8,9 +8,10 @@ mod help;
 mod tests;
 
 use self::help::{print_help, print_version, Help};
-use crate::executor::{Executor, Options};
+use crate::executor::{plan, Executor, Options};
 use crate::process::{self, Termination};
 use crate::routine::Routine;
+use crate::subcommand::Subcommands;
 use lexopt::prelude::*;
 use lexopt::{Arg, Parser};
 use std::ffi::{OsStr, OsString};
@@ -36,31 +37,31 @@ impl Cli {
     /// Show each command's output as it runs.
     #[must_use]
     pub fn verbose(&self) -> bool {
-        self.flags.contains(&Flag::Verbose)
+        self.settings().verbose
     }
 
     /// Run all commands at once instead of one after another (experimental).
     #[must_use]
     pub fn parallel(&self) -> bool {
-        self.flags.contains(&Flag::Parallel)
+        self.settings().parallel
     }
 
     /// Keep running the remaining commands after one fails.
     #[must_use]
     pub fn keep_going(&self) -> bool {
-        self.flags.contains(&Flag::KeepGoing)
+        self.settings().keep_going
     }
 
     /// Print the commands that would run, without running them.
     #[must_use]
     pub fn dry_run(&self) -> bool {
-        self.flags.contains(&Flag::DryRun)
+        self.settings().dry_run
     }
 
     /// Print plain output, without the overprinting status display.
     #[must_use]
     pub fn no_fancy(&self) -> bool {
-        self.flags.contains(&Flag::NoFancy)
+        self.settings().no_fancy
     }
 
     /// How many times the whole list runs.
@@ -83,6 +84,138 @@ impl Cli {
             Ok(Outcome::Help(help)) => print_help(help),
             Ok(Outcome::Version) => print_version(),
             Err(err) => err.report(),
+        }
+    }
+
+    /// What a command line means, without running anything.
+    ///
+    /// The arguments are the ones that follow `cargo q`: cargo-q's own
+    /// options first, then the commands to run. The commands are split the
+    /// way a run would split them, so a caller can show what an invocation
+    /// does before it does it.
+    ///
+    /// The known cargo subcommand names are the caller's, so a caller that
+    /// cannot ask cargo can use this too: one that has no cargo to ask, or
+    /// one that runs where cargo cannot be started. The split is then the
+    /// one a cargo would make whose subcommands are cargo-q's well-known
+    /// names plus these (see [`Subcommands::with_names`]).
+    ///
+    /// A line cargo-q would reject is reported in [`Inspection::error`],
+    /// with the message a run would print.
+    #[must_use]
+    pub fn inspect_with(
+        args: impl IntoIterator<Item = OsString>,
+        known: &Subcommands,
+    ) -> Inspection {
+        let args: Vec<OsString> = args.into_iter().collect();
+
+        match Self::parse_from(&args) {
+            Ok(Outcome::Run(cli)) => cli.inspect_commands(known),
+            Ok(Outcome::Help(help)) => Inspection {
+                help: Some(help.text()),
+                exit_code: Some(0),
+                ..Inspection::default()
+            },
+            Ok(Outcome::Version) => Inspection {
+                version: Some(crate::VERSION),
+                exit_code: Some(0),
+                ..Inspection::default()
+            },
+            // `ParseError::report` ends the process with 2.
+            Err(err) => Inspection {
+                error: Some(err.message()),
+                exit_code: Some(USAGE_EXIT_CODE),
+                ..Inspection::default()
+            },
+        }
+    }
+
+    /// Like [`Self::inspect_with`], but for the whole command line, program
+    /// name included, the way a process gets it: `cargo-q q check test`, or
+    /// `cargo q check test` as a shell would type it.
+    ///
+    /// The program name and every `q` that names the cargo subcommand are
+    /// dropped before the line is parsed, exactly as a run drops them, so a
+    /// caller that has the line as typed does not repeat that rule.
+    #[must_use]
+    pub fn inspect_argv_with(
+        argv: impl IntoIterator<Item = OsString>,
+        known: &Subcommands,
+    ) -> Inspection {
+        Self::inspect_with(Self::command_line(argv), known)
+    }
+
+    /// The commands this command line would run.
+    fn inspect_commands(&self, known: &Subcommands) -> Inspection {
+        let options = self
+            .flags
+            .iter()
+            .map(|flag| flag.given(self.repeat.unwrap_or(1)))
+            .collect();
+
+        let settings = self.settings();
+        match Routine::parse_many_with(&self.commands, known) {
+            Ok(routines) => Inspection {
+                options,
+                settings,
+                plan: Some(plan(&routines, self.run_options())),
+                commands: routines
+                    .iter()
+                    .map(|routine| Command {
+                        name: routine.name().to_string_lossy().into_owned(),
+                        args: routine
+                            .args()
+                            .iter()
+                            .map(|arg| arg.to_string_lossy().into_owned())
+                            .collect(),
+                    })
+                    .collect(),
+                ..Inspection::default()
+            },
+            // `run` turns this into an I/O error, which `main` prints and
+            // answers with a plain failure.
+            Err(message) => Inspection {
+                options,
+                settings,
+                error: Some(message),
+                exit_code: Some(1),
+                ..Inspection::default()
+            },
+        }
+    }
+
+    /// The options, as values.
+    ///
+    /// This is the one place that says what an option means: every option
+    /// the parser knows, but `--help` and `--version`, sets one field here.
+    /// Adding an option means adding it here too, or the compiler says so.
+    fn settings(&self) -> Settings {
+        let mut settings = Settings::default();
+        for flag in &self.flags {
+            match flag {
+                Flag::Verbose => settings.verbose = true,
+                Flag::Parallel => settings.parallel = true,
+                Flag::KeepGoing => settings.keep_going = true,
+                Flag::DryRun => settings.dry_run = true,
+                Flag::NoFancy => settings.no_fancy = true,
+                Flag::Repeat => settings.repeat = self.repeat.unwrap_or(1),
+                // These end the parsing, so they set nothing.
+                Flag::Help(_) | Flag::Version => {}
+            }
+        }
+        settings
+    }
+
+    /// How `run` would run the commands.
+    fn run_options(&self) -> Options {
+        let settings = self.settings();
+        Options {
+            verbose: settings.verbose,
+            parallel: settings.parallel,
+            keep_going: settings.keep_going,
+            dry_run: settings.dry_run,
+            fancy: !settings.no_fancy,
+            repeat: settings.repeat,
         }
     }
 
@@ -244,16 +377,77 @@ impl Cli {
             Err(_) if process::was_interrupted() => return Ok(Termination::Interrupted),
             Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidInput, e)),
         };
-        let options = Options {
-            verbose: self.verbose(),
-            parallel: self.parallel(),
-            keep_going: self.keep_going(),
-            dry_run: self.dry_run(),
-            fancy: !self.no_fancy(),
-            repeat: self.repeat.unwrap_or(1),
-        };
-        Executor::new(routines, options).execute()
+        Executor::new(routines, self.run_options()).execute()
     }
+}
+
+/// What a command line means, without running it.
+///
+/// The same split a run would make, in a form a program can use: this is
+/// what `--dry-run` prints, as data.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Inspection {
+    /// cargo-q's own options, in the order they were given.
+    pub options: Vec<String>,
+    /// The commands the line was split into, in the order they would run.
+    pub commands: Vec<Command>,
+    /// The help text the line asks for, when it asks for any.
+    pub help: Option<&'static str>,
+    /// The version the line asks for, when it asks for it.
+    pub version: Option<&'static str>,
+    /// The error the line would report, when it is not one cargo-q accepts.
+    pub error: Option<String>,
+    /// The same options as [`Self::options`], as values instead of text.
+    pub settings: Settings,
+    /// What `--dry-run` would print for these commands.
+    ///
+    /// Set whenever the line splits into commands, whether or not
+    /// `--dry-run` was given.
+    pub plan: Option<String>,
+    /// The exit code the process would end with right away, when the line
+    /// ends there instead of running anything: 0 for the help and the
+    /// version, 2 for a line the option parser rejects, 1 for a command it
+    /// cannot split. `None` when the line would run.
+    pub exit_code: Option<i32>,
+}
+/// cargo-q's own options, as values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Settings {
+    /// `-v`/`--verbose`.
+    pub verbose: bool,
+    /// `-p`/`--parallel`.
+    pub parallel: bool,
+    /// `-k`/`--keep-going`.
+    pub keep_going: bool,
+    /// `-n`/`--dry-run`.
+    pub dry_run: bool,
+    /// `--no-fancy`.
+    pub no_fancy: bool,
+    /// How many rounds the list runs: one without `--repeat`.
+    pub repeat: u32,
+}
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            verbose: false,
+            parallel: false,
+            keep_going: false,
+            dry_run: false,
+            no_fancy: false,
+            repeat: 1,
+        }
+    }
+}
+/// The exit code of a command line the option parser rejects.
+const USAGE_EXIT_CODE: i32 = 2;
+
+/// One command a command line was split into.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Command {
+    /// The name of the cargo subcommand.
+    pub name: String,
+    /// The arguments that go with it.
+    pub args: Vec<String>,
 }
 
 /// One of cargo-q's own options.
@@ -307,6 +501,15 @@ impl Flag {
             Flag::Help(Help::Short) => "-h",
             Flag::Help(Help::Long) => "--help",
             Flag::Version => "--version",
+        }
+    }
+
+    /// The option as it was given: the usage line, with the value of
+    /// `--repeat` filled in.
+    fn given(self, repeat: u32) -> String {
+        match self {
+            Flag::Repeat => format!("--repeat {repeat}"),
+            other => other.usage().to_string(),
         }
     }
 
@@ -375,7 +578,7 @@ impl ParseError {
     /// Print the error, then end the process the way it should end.
     fn report(self) -> ! {
         eprintln!("{}", self.message());
-        std::process::exit(2);
+        std::process::exit(USAGE_EXIT_CODE);
     }
 
     /// The whole message: one line of explanation, then the usage line it

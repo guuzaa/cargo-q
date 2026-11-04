@@ -1,0 +1,51 @@
+---
+/**
+ * cargo-q's options, one card each. A card turns over to show a line that
+ * uses it and what `--dry-run` says that line does, rendered at build time
+ * by cargo-q's own parser.
+ */
+import Line from './Line.astro';
+import { dryRun } from '../lib/parser';
+
+const flags = [
+  { flag: '-k', long: '--keep-going', what: 'keep going', glyph: '↷', line: 'cargo q -k test build' },
+  { flag: '-p', long: '--parallel', what: 'all at once', glyph: '∥', line: 'cargo q -p check clippy doc' },
+  { flag: '-n', long: '--dry-run', what: 'look first', glyph: '?', line: 'cargo q -n build --features=foo' },
+  { flag: '-v', long: '--verbose', what: 'watch cargo', glyph: '≡', line: 'cargo q -v check run' },
+  { flag: '--repeat', long: '--repeat <N>', what: 'N rounds', glyph: '×', line: 'cargo q --repeat 3 check' },
+  { flag: '--no-fancy', long: 'for agents & CI', what: 'plain lines', glyph: '⌁', line: 'cargo q --no-fancy fmt check test' },
+];
+const plans = await Promise.all(flags.map((f) => dryRun(f.line)));
+---
+
+<section class="mx-auto max-w-5xl px-4 pt-32" aria-labelledby="flags-title">
+  <h2 id="flags-title" class="text-center text-xs uppercase tracking-[0.3em] text-sand-600" data-reveal>flags</h2>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {
+      flags.map((f, i) => (
+        <div class="flip h-56" data-reveal style={`--i: ${i}`} tabindex="0">
+          <div class="flip-inner">
+            <div class="flip-face card flex flex-col justify-between p-6" data-glow>
+              <div class="flex items-start justify-between">
+                <span class="text-4xl font-extrabold text-rust-500">{f.flag}</span>
+                <span class="text-3xl text-sand-600" aria-hidden="true">{f.glyph}</span>
+              </div>
+              <div>
+                <div class="text-lg font-semibold text-sand-50">{f.what}</div>
+                <div class="mt-1 text-xs text-sand-500">{f.long}</div>
+              </div>
+            </div>
+            <div class="flip-face flip-back card flex flex-col justify-between p-5" data-glow>
+              <Line line={f.line} class="block overflow-x-auto pb-1 text-[0.8rem]" />
+              <pre class="mt-3 flex-1 overflow-hidden text-[0.72rem] leading-relaxed text-sand-500">{plans[i].join('\n')}</pre>
+              <button type="button" class="chip self-start" data-run={f.line}>
+                <span class="chip-mark" aria-hidden="true">▶</span> run
+              </button>
+            </div>
+          </div>
+        </div>
+      ))
+    }
+  </div>
+</section>

@@ -1,0 +1,63 @@
+---
+/**
+ * The exit code a run leaves behind: the first failure's own code.
+ */
+import Line from './Line.astro';
+
+const rows = [
+  { line: 'cargo q fmt check', code: 0, kind: 'ok' },
+  { line: 'cargo q check test build', code: 101, kind: 'fail' },
+  { line: 'cargo q build --features feature1', code: 1, kind: 'fail' },
+  { line: 'cargo q -p --repeat 2 check', code: 2, kind: 'fail' },
+  { line: 'cargo q watch', code: 130, kind: 'int', key: '^C' },
+];
+const color: Record<string, string> = {
+  ok: 'text-ok',
+  fail: 'text-fail',
+  int: 'text-warn',
+};
+---
+
+<section class="mx-auto max-w-3xl px-4 pt-32" aria-labelledby="exits-title">
+  <h2 id="exits-title" class="text-center text-xs uppercase tracking-[0.3em] text-sand-600" data-reveal>echo $?</h2>
+
+  <div class="card mt-6 divide-y divide-sand-50/5" data-glow data-reveal>
+    {
+      rows.map((row, i) => (
+        <button
+          type="button"
+          class="exit-row group flex w-full items-center gap-4 px-5 py-4 text-left text-[0.8rem] sm:px-7 sm:text-sm"
+          data-run={row.line}
+          data-reroll
+        >
+          <span class="run-arrow text-rust-500" aria-hidden="true">▶</span>
+          <Line line={row.line} class="min-w-0 truncate" />
+          {row.key && <span class="kbd">{row.key}</span>}
+          <span class="mx-1 h-px flex-1 border-t border-dashed border-sand-50/10" aria-hidden="true" />
+          <span class={`text-xl font-bold tabular-nums sm:text-2xl ${color[row.kind]}`} data-odometer={row.code} data-delay={i * 120}>
+            {row.code}
+          </span>
+        </button>
+      ))
+    }
+  </div>
+</section>
+
+<script>
+  import { odometers } from '../scripts/motion';
+
+  odometers();
+  // Hovering a row rolls its digits again.
+  for (const row of document.querySelectorAll<HTMLElement>('[data-reroll]')) {
+    const odometer = row.querySelector<HTMLElement>('[data-odometer]');
+    if (!odometer) continue;
+    row.addEventListener('pointerenter', () => {
+      if (!odometer.hasAttribute('data-rolled')) return;
+      odometer.classList.add('odo-reset');
+      odometer.removeAttribute('data-rolled');
+      void odometer.offsetWidth;
+      odometer.classList.remove('odo-reset');
+      requestAnimationFrame(() => odometer.setAttribute('data-rolled', ''));
+    });
+  }
+</script>

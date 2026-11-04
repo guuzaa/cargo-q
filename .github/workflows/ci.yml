@@ -1,4 +1,4 @@
-name: Rust CI
+name: CI
 
 on:
   push:
@@ -46,3 +46,49 @@ jobs:
     - name: Run clippy
       if: matrix.os != 'windows-latest'
       run: cargo clippy -- -D warnings
+
+    - name: Install the wasm32 target
+      if: matrix.os == 'ubuntu-latest'
+      run: rustup target add wasm32-unknown-unknown
+
+    - name: Check the wasm32 build
+      if: matrix.os == 'ubuntu-latest'
+      run: cargo check --target wasm32-unknown-unknown
+
+    - name: Run clippy on the wasm32 build
+      if: matrix.os == 'ubuntu-latest'
+      run: cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings
+
+  page:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 12.14.0
+
+    - name: Install Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+        cache-dependency-path: page/pnpm-lock.yaml
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+      working-directory: page
+
+    - name: Check the page
+      run: pnpm check
+      working-directory: page
+
+    - name: Build the page
+      run: pnpm build
+      working-directory: page

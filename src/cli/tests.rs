@@ -1,6 +1,7 @@
 use super::help::Help;
 use super::*;
 use crate::routine::Routine;
+use crate::subcommand::Subcommands;
 use std::ffi::OsString;
 
 /// The arguments as the parser takes them.
@@ -338,4 +339,103 @@ fn a_repeat_after_a_command_is_not_a_cargo_q_flag() {
     let cli = parse_args(&["check", "--repeat", "3"]);
     assert_eq!(cli.repeat(), None);
     assert_eq!(cli.commands, ["check", "--repeat", "3"].map(OsString::from));
+}
+
+/// The commands an argument list was split into.
+fn inspect_commands(args: &[&str]) -> Vec<Command> {
+    let known = Subcommands::with_names(&["check"]);
+    Cli::inspect_with(os_args(args), &known).commands
+}
+
+#[test]
+fn inspection_splits_the_commands() {
+    let commands = inspect_commands(&["build", "-r", "test", "--no-run"]);
+    assert_eq!(
+        commands,
+        [
+            Command {
+                name: "build".to_string(),
+                args: ["-r"].map(String::from).to_vec(),
+            },
+            Command {
+                name: "test".to_string(),
+                args: ["--no-run"].map(String::from).to_vec(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn inspection_lists_the_options() {
+    let known = Subcommands::with_names(&["check"]);
+    let inspection = Cli::inspect_with(os_args(&["--dry-run", "--repeat", "3", "check"]), &known);
+    assert_eq!(inspection.options, ["--dry-run", "--repeat 3"]);
+    assert_eq!(inspection.commands.len(), 1);
+    assert!(inspection.error.is_none());
+}
+
+/// The text of the options and their values say the same thing.
+#[test]
+fn the_options_and_the_settings_agree() {
+    let known = Subcommands::with_names(&["check"]);
+    let inspection = Cli::inspect_with(
+        os_args(&["-v", "-p", "-k", "-n", "--no-fancy", "check"]),
+        &known,
+    );
+    assert_eq!(
+        inspection.options,
+        [
+            "--verbose",
+            "--parallel",
+            "--keep-going",
+            "--dry-run",
+            "--no-fancy",
+        ]
+    );
+    assert_eq!(
+        inspection.settings,
+        Settings {
+            verbose: true,
+            parallel: true,
+            keep_going: true,
+            dry_run: true,
+            no_fancy: true,
+            repeat: 1,
+        }
+    );
+}
+
+/// The round count is an option with a value, in both forms.
+#[test]
+fn the_repeat_option_carries_its_value() {
+    let known = Subcommands::with_names(&["check"]);
+    let inspection = Cli::inspect_with(os_args(&["--repeat", "3", "check"]), &known);
+    assert_eq!(inspection.options, ["--repeat 3"]);
+    assert_eq!(inspection.settings.repeat, 3);
+}
+
+#[test]
+fn inspection_reports_an_unknown_token() {
+    let known = Subcommands::with_names(&["check"]);
+    let inspection = Cli::inspect_with(os_args(&["build", "--features", "f1"]), &known);
+    let error = inspection.error.expect("the token is rejected");
+    assert!(error.contains("'f1' is not a cargo subcommand"), "{error}");
+    assert!(error.contains("cargo q \"build --features f1\""), "{error}");
+    assert!(inspection.commands.is_empty());
+}
+
+#[test]
+fn inspection_reports_a_line_that_does_not_parse() {
+    let known = Subcommands::with_names(&["check"]);
+    let inspection = Cli::inspect_with(os_args(&["--repeat", "0", "check"]), &known);
+    let error = inspection.error.expect("the line is rejected");
+    assert!(error.contains("at least one round"), "{error}");
+}
+
+#[test]
+fn inspection_reports_a_line_without_a_command() {
+    let known = Subcommands::with_names(&["check"]);
+    let inspection = Cli::inspect_with(os_args(&["--dry-run"]), &known);
+    let error = inspection.error.expect("the line is rejected");
+    assert!(error.contains("<COMMANDS>"), "{error}");
 }

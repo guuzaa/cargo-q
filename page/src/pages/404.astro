@@ -1,0 +1,49 @@
+---
+/**
+ * The page a visitor lands on when the address is wrong. It says what
+ * happened, and it points at the way to get the tool.
+ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+---
+
+<Layout title="cargo-q · Not found" description="There is nothing at this address." canonical={false}>
+  <Nav />
+  <main id="main">
+    <section class="relative mx-auto max-w-3xl px-4 pt-32 pb-24 text-center" aria-labelledby="not-found-title">
+      <p class="text-xs uppercase tracking-[0.3em] text-sand-600" data-reveal>404</p>
+
+      <h1 id="not-found-title" class="mt-6 text-4xl font-extrabold tracking-tight text-sand-50 sm:text-5xl" data-reveal style="--i: 1">
+        No such page.
+      </h1>
+
+      <p class="mt-4 text-sm text-sand-300 sm:text-base" data-reveal style="--i: 2">
+        The address is wrong, or the page is gone.
+      </p>
+
+      <a
+        href="/#install"
+        class="card mx-auto mt-10 flex max-w-xl items-center gap-3 px-5 py-4 text-left text-sm"
+        data-glow
+        data-reveal
+        style="--i: 3"
+      >
+        <span class="select-none text-rust-500" aria-hidden="true">$</span>
+        <code class="min-w-0 flex-1 overflow-x-auto whitespace-nowrap py-1 text-sand-50">cargo install cargo-q --locked</code>
+        <span class="shrink-0 text-sand-500" aria-hidden="true">↗</span>
+        <span class="sr-only">the way to install cargo-q</span>
+      </a>
+
+      <div class="mt-10 flex flex-wrap justify-center gap-2" data-reveal style="--i: 4">
+        <a href="/" class="chip">
+          <span class="chip-mark" aria-hidden="true">←</span>
+          home page
+        </a>
+        <a href="https://crates.io/crates/cargo-q" class="chip">
+          <span class="chip-mark" aria-hidden="true">↗</span>
+          crates.io
+        </a>
+      </div>
+    </section>
+  </main>
+</Layout>

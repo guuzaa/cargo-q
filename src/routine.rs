@@ -30,6 +30,18 @@ impl Routine {
         }
     }
 
+    /// The name of the cargo subcommand.
+    #[must_use]
+    pub fn name(&self) -> &OsStr {
+        &self.name
+    }
+
+    /// The arguments that go with the command.
+    #[must_use]
+    pub fn args(&self) -> &[OsString] {
+        &self.args
+    }
+
     /// Parse one or more routines from command-line tokens.
     ///
     /// A token that does not start with `-` starts a new command. Subsequent
@@ -287,7 +299,7 @@ mod tests {
 
     #[test]
     fn unknown_bare_token_is_rejected_with_a_hint() {
-        let known = Subcommands::from_names(Some(&["check"]));
+        let known = Subcommands::with_names(&["check"]);
         let err = Routine::parse_many_with(["build", "--features", "f1"], &known).unwrap_err();
         assert!(err.contains("'f1'"), "{err}");
         assert!(err.contains("cargo q \"build --features f1\""), "{err}");
@@ -296,7 +308,7 @@ mod tests {
 
     #[test]
     fn hint_uses_the_full_invoked_command() {
-        let known = Subcommands::from_names(Some(&["check", "r"]));
+        let known = Subcommands::with_names(&["check", "r"]);
         let err = Routine::parse_many_with(["r", "-p", "oven"], &known).unwrap_err();
         assert_eq!(
             err,
@@ -319,7 +331,7 @@ mod tests {
     /// to, only the quoted form is offered.
     #[test]
     fn hint_quotes_the_command_the_token_belongs_to() {
-        let known = Subcommands::from_names(Some(&["check"]));
+        let known = Subcommands::with_names(&["check"]);
         let err = Routine::parse_many_with(["run", "oven"], &known).unwrap_err();
         assert_eq!(
             err,
@@ -330,7 +342,7 @@ mod tests {
 
     #[test]
     fn discovered_subcommand_starts_a_new_command() {
-        let known = Subcommands::from_names(Some(&["nextest"]));
+        let known = Subcommands::with_names(&["nextest"]);
         let routines = Routine::parse_many_with(["check", "nextest"], &known).unwrap();
         assert_eq!(routines.len(), 2);
         assert_eq!(routines[1].name, "nextest");
@@ -338,7 +350,7 @@ mod tests {
 
     #[test]
     fn first_command_is_not_validated() {
-        let known = Subcommands::from_names(Some(&[]));
+        let known = Subcommands::with_names(&[]);
         let routines = Routine::parse_many_with(["totally-unknown"], &known).unwrap();
         assert_eq!(routines.len(), 1);
         assert_eq!(routines[0].name, "totally-unknown");
@@ -346,7 +358,7 @@ mod tests {
 
     #[test]
     fn undetermined_lookup_passes_the_token_through() {
-        let known = Subcommands::from_names(None);
+        let known = Subcommands::undetermined();
         let routines = Routine::parse_many_with(["build", "some-third-party"], &known).unwrap();
         assert_eq!(routines.len(), 2);
         assert_eq!(routines[1].name, "some-third-party");
@@ -354,7 +366,7 @@ mod tests {
 
     #[test]
     fn quoted_command_name_is_validated() {
-        let known = Subcommands::from_names(Some(&["check"]));
+        let known = Subcommands::with_names(&["check"]);
         let err = Routine::parse_many_with(["check", "nope -r"], &known).unwrap_err();
         assert!(err.contains("'nope'"), "{err}");
 

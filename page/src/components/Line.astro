@@ -1,0 +1,27 @@
+---
+/**
+ * A command line, colored by what cargo-q's parser makes of each word:
+ * the same colors the terminal uses while it is typed.
+ */
+import { analyze } from '../scripts/analyze';
+import { buildParser } from '../lib/parser';
+
+interface Props {
+  line: string;
+  class?: string;
+}
+
+const { line, class: className = '' } = Astro.props;
+const { tokens } = analyze(line, line.length, await buildParser());
+
+const parts: { text: string; role: string }[] = [];
+let at = 0;
+for (const token of tokens) {
+  if (token.start > at) parts.push({ text: line.slice(at, token.start), role: 'space' });
+  parts.push({ text: line.slice(token.start, token.end), role: token.role });
+  at = token.end;
+}
+if (at < line.length) parts.push({ text: line.slice(at), role: 'space' });
+---
+
+<code class:list={['line whitespace-pre', className]}>{parts.map((part) => <span class={`r-${part.role}`}>{part.text}</span>)}</code>
