@@ -9,6 +9,10 @@
 - `Routine::name` and `Routine::args` read a parsed command: its name and its arguments.
 - `cargo_q::VERSION` is the version of cargo-q the crate was built from.
 
+### Fixed
+- The terminal on the landing page can be edited again. The gray suggestion it draws after the cursor is the rest of a line the shell knows, and it was drawn after every keystroke: a backspace shortened the line, but the suggestion filled it back in, so what a tab had completed could not be erased. A deletion now drops the suggestion, and a tab completion replaces it: the completion is the answer, the suggestion is only a guess. Typing offers the suggestion again, as does the key that accepts it.
+- The candidates a tab shows are a menu now, not a line of the terminal's history. They are drawn under the prompt and are gone with the next keystroke, which erases everything under the prompt with them. They used to be printed above the prompt, where they stayed for good: there was no way to take that list of commands away. A menu that is taller than the screen says how many candidates it left out.
+
 ### Changed
 - The social card of the landing page names the crate on crates.io now, not the site: `crates.io/crates/cargo-q`.
 

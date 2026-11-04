@@ -68,6 +68,15 @@ export class Shell {
   private interrupted = false;
   private idle: Promise<void> = Promise.resolve();
   private typing = 0;
+  /**
+   * Whether the gray suggestion is out of the way.
+   *
+   * The suggestion is a preview of a line the shell knows, drawn after the
+   * cursor. It must never fight the person typing: a deletion drops it, so
+   * what is left on the screen is only what was typed. Typing offers it
+   * again, and so does the key that accepts it.
+   */
+  private hintOff = false;
 
   constructor(
     private readonly term: Terminal,
@@ -134,12 +143,16 @@ export class Shell {
         case '\x7f':
         case '\x08':
           if (this.cursor > 0) {
+            this.hintOff = true;
             this.buffer = this.buffer.slice(0, this.cursor - 1) + this.buffer.slice(this.cursor);
             this.cursor -= 1;
           }
           break;
         case '\x1b[3~':
-          this.buffer = this.buffer.slice(0, this.cursor) + this.buffer.slice(this.cursor + 1);
+          if (this.cursor < this.buffer.length) {
+            this.hintOff = true;
+            this.buffer = this.buffer.slice(0, this.cursor) + this.buffer.slice(this.cursor + 1);
+          }
           break;
         case '\x1b[D':
         case '\x02':
@@ -147,8 +160,10 @@ export class Shell {
           break;
         case '\x1b[C':
         case '\x06':
-          if (this.cursor === this.buffer.length) this.acceptSuggestion();
-          else this.cursor += 1;
+          if (this.cursor === this.buffer.length) {
+            this.hintOff = false;
+            this.acceptSuggestion();
+          } else this.cursor += 1;
           break;
         case '\x1b[1;5D':
         case '\x1bb':
@@ -168,6 +183,7 @@ export class Shell {
         case '\x1bOF':
         case '\x1b[4~':
         case '\x05':
+          this.hintOff = false;
           if (this.cursor === this.buffer.length) this.acceptSuggestion();
           this.cursor = this.buffer.length;
           break;
@@ -180,13 +196,16 @@ export class Shell {
           this.recall(-1);
           break;
         case '\x15':
+          this.hintOff = true;
           this.buffer = this.buffer.slice(this.cursor);
           this.cursor = 0;
           break;
         case '\x0b':
+          this.hintOff = true;
           this.buffer = this.buffer.slice(0, this.cursor);
           break;
         case '\x17': {
+          this.hintOff = true;
           const start = this.wordStart(this.cursor);
           this.buffer = this.buffer.slice(0, start) + this.buffer.slice(this.cursor);
           this.cursor = start;
@@ -214,6 +233,7 @@ export class Shell {
           return;
         default:
           if (key.length === 1 && key >= ' ') {
+            this.hintOff = false;
             this.buffer = this.buffer.slice(0, this.cursor) + key + this.buffer.slice(this.cursor);
             this.cursor += 1;
           }
@@ -223,12 +243,14 @@ export class Shell {
   }
 
   private insert(text: string): void {
+    this.hintOff = false;
     this.buffer = this.buffer.slice(0, this.cursor) + text + this.buffer.slice(this.cursor);
     this.cursor += text.length;
     this.render();
   }
 
   private setBuffer(text: string): void {
+    this.hintOff = false;
     this.buffer = text;
     this.cursor = text.length;
     this.render();
@@ -254,12 +276,15 @@ export class Shell {
     const at = Math.min(this.history.length - 1, Math.max(-1, this.historyAt + step));
     this.historyAt = at;
     const line = at === -1 ? this.draft : this.history[this.history.length - 1 - at];
+    // A line from the history is whole: there is nothing left to suggest.
+    this.hintOff = true;
     this.buffer = line;
     this.cursor = line.length;
   }
 
   /** The rest of a line the shell has seen before, offered in gray. */
   private suggestion(): string {
+    if (this.hintOff) return '';
     if (this.buffer.trim() === '' || this.cursor !== this.buffer.length) return '';
     const pool = [...[...this.history].reverse(), ...this.suggestions];
     const hit = pool.find((line) => line.startsWith(this.buffer) && line !== this.buffer);
@@ -292,25 +317,20 @@ export class Shell {
 
     const matches = [...new Set(pool)].filter((name) => name.startsWith(word));
     if (matches.length === 0) {
+      this.render();
       this.term.write('\x07');
       return;
     }
+    // The tab answered the question, so the gray suggestion has nothing to
+    // say: it would only hide what was completed.
+    this.hintOff = true;
     let common = matches[0];
     for (const match of matches) while (!match.startsWith(common)) common = common.slice(0, -1);
     if (matches.length === 1) {
       common += common.endsWith('=') ? '' : ' ';
     } else if (common === word) {
       // Nothing more to add: show what there is to choose from.
-      const width = Math.max(...matches.map((m) => m.length)) + 2;
-      const perRow = Math.max(1, Math.floor(this.term.cols / width));
-      let list = '';
-      matches.forEach((m, i) => {
-        list += `${C.dim}${m.padEnd(width)}${R}`;
-        if ((i + 1) % perRow === 0 && i + 1 < matches.length) list += '\r\n';
-      });
-      this.term.write(`${this.draw(false)}\r\n${list}\r\n`);
-      this.row = 0;
-      this.render(true);
+      this.menu(matches);
       return;
     }
     this.buffer = before.slice(0, start) + common + this.buffer.slice(this.cursor);
@@ -318,11 +338,51 @@ export class Shell {
     this.render();
   }
 
+  /**
+   * The candidates, drawn under the prompt.
+   *
+   * The menu is a choice, not a line the shell has run: it is gone with the
+   * next keystroke, which erases everything under the prompt. So it is
+   * drawn there in the first place, and the cursor is put back where it
+   * belongs right after.
+   */
+  private menu(matches: string[]): void {
+    const cols = this.term.cols;
+    const width = Math.max(...matches.map((m) => m.length)) + 2;
+    const perRow = Math.max(1, Math.floor(cols / width));
+    // The menu has to fit on the screen: a longer one would push the
+    // prompt off the top of it, and then it could not be taken away.
+    const room = Math.max(2, (this.term.rows - 2) * perRow);
+    const shown = matches.length > room ? room - 1 : matches.length;
+
+    let list = '';
+    for (let i = 0; i < shown; i += 1) {
+      list += `${C.dim}${matches[i].padEnd(width)}${R}`;
+      if ((i + 1) % perRow === 0 && i + 1 < shown) list += '\r\n';
+    }
+    if (shown < matches.length) list += `${C.dim}…+${matches.length - shown}${R}`;
+    const rows = Math.ceil(shown / perRow);
+
+    // The prompt is drawn again, so the menu starts under it and not under
+    // whatever was on the screen before.
+    const prompt = this.draw(false);
+    const from = this.row;
+    this.term.write(`${prompt}\r\n${list}`);
+
+    // The cursor is on the last row of the menu now; it goes back to the
+    // line, so the next keystroke can erase the menu with it.
+    const live = PROMPT_TEXT.length + this.cursor;
+    const liveRow = Math.floor(live / cols);
+    this.term.write(`\x1b[${from + rows - liveRow}A\x1b[${(live % cols) + 1}G`);
+    this.row = liveRow;
+  }
+
   // --- drawing -----------------------------------------------------------
 
   private prompt(): void {
     this.row = 0;
     this.historyAt = -1;
+    this.hintOff = false;
     // The split view keeps showing the line that just ran until the next
     // key, so the new prompt does not tell it about the empty line.
     this.term.write(this.draw(true, true, false));
