@@ -1,6 +1,6 @@
 # The landing page of cargo-q
 
-The site at <https://cargo-q.dev>: Astro, Tailwind and a Worker, deployed on
+The site at <https://cargo-q.paulden.site>: Astro, Tailwind and a Worker, deployed on
 Cloudflare.
 
 ## What is here

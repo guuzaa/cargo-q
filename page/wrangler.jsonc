@@ -7,6 +7,9 @@
     "directory": "./dist",
     "binding": "ASSETS"
   },
+  "routes": [
+    { "pattern": "cargo-q.paulden.site", "custom_domain": true }
+  ],
   "observability": {
     "enabled": true
   }

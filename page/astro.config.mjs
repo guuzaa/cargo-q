@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://cargo-q.dev',
+  site: 'https://cargo-q.paulden.site',
   vite: {
     plugins: [tailwindcss()],
   },

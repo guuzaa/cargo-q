@@ -15,6 +15,7 @@
 
 ### Changed
 - The social card of the landing page names the crate on crates.io now, not the site: `crates.io/crates/cargo-q`.
+- The landing page lives at <https://cargo-q.paulden.site> now: the canonical link, the social card's URL and the address the Worker answers on all follow it.
 
 ## [0.7.1] - 2026-11-01
 ### Fixed

@@ -52,7 +52,7 @@ splitting rule), verify it with `cargo test` — the integration test in
 
 ## The landing page
 
-`page/` is the site at <https://cargo-q.dev>: Astro, Tailwind, a Cloudflare
+`page/` is the site at <https://cargo-q.paulden.site>: Astro, Tailwind, a Cloudflare
 Worker. It has its own toolchain (pnpm) and its own README (`page/README.md`).
 
 - `page/wasm/` is a small Rust crate that compiles cargo-q's parser to

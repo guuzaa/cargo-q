@@ -33,7 +33,7 @@ export default {
       if (cached) return cached;
 
       const response = await fetch(CRATE, {
-        headers: { 'user-agent': 'cargo-q.dev (the landing page of cargo-q)' },
+        headers: { 'user-agent': 'cargo-q.paulden.site (the landing page of cargo-q)' },
       });
       if (!response.ok) {
         return new Response('crates.io is not answering', { status: 502 });
