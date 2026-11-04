@@ -132,28 +132,40 @@ impl Executor {
     /// means before it spawns anything. The header is a separate line, so the
     /// commands can be read off with `tail -n +2`.
     fn print_plan(&self) -> io::Result<()> {
-        let mode = if self.options.parallel {
-            "in parallel"
-        } else {
-            "sequentially"
-        };
-
-        // The rounds are named only when there are more than one: "2
-        // command(s), sequentially:" reads better than "2 command(s) x 1
-        // rounds, sequentially:".
-        let rounds = match self.options.repeat.max(1) {
-            1 => String::new(),
-            rounds => format!(" x {rounds} rounds"),
-        };
-
         let stdout = io::stdout();
         let mut out = stdout.lock();
-        writeln!(out, "{} command(s){rounds}, {mode}:", self.routines.len())?;
-        for routine in &self.routines {
-            writeln!(out, "  {routine}")?;
-        }
+        out.write_all(plan(&self.routines, self.options).as_bytes())?;
         out.flush()
     }
+}
+
+/// The text `--dry-run` prints: a header, then one line per command.
+///
+/// A command line is split the same way for a dry run and for a real one,
+/// so a caller that cannot run anything (the landing page) can still show
+/// exactly what a dry run says.
+pub(crate) fn plan(routines: &[Routine], options: Options) -> String {
+    use std::fmt::Write as _;
+
+    let mode = if options.parallel {
+        "in parallel"
+    } else {
+        "sequentially"
+    };
+
+    // The rounds are named only when there are more than one: "2
+    // command(s), sequentially:" reads better than "2 command(s) x 1
+    // rounds, sequentially:".
+    let rounds = match options.repeat.max(1) {
+        1 => String::new(),
+        rounds => format!(" x {rounds} rounds"),
+    };
+
+    let mut text = format!("{} command(s){rounds}, {mode}:\n", routines.len());
+    for routine in routines {
+        writeln!(text, "  {routine}").expect("writing to a String cannot fail");
+    }
+    text
 }
 
 #[cfg(test)]

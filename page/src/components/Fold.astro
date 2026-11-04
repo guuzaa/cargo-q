@@ -1,0 +1,140 @@
+---
+/**
+ * `cargo fmt && cargo clippy && …` folding into `cargo q fmt clippy …`.
+ */
+const pieces: [string, 'program' | 'came' | 'command' | 'gone'][] = [
+  ['cargo', 'program'],
+  [' q', 'came'],
+  [' fmt', 'command'],
+  [' && cargo', 'gone'],
+  [' clippy', 'command'],
+  [' && cargo', 'gone'],
+  [' check', 'command'],
+  [' && cargo', 'gone'],
+  [' test', 'command'],
+];
+const long = pieces.filter(([, kind]) => kind !== 'came').map(([text]) => text).join('');
+const short = pieces.filter(([, kind]) => kind !== 'gone').map(([text]) => text).join('');
+let gone = 0;
+---
+
+<section class="mx-auto max-w-5xl px-4 pt-32" aria-labelledby="fold-title">
+  <h2 id="fold-title" class="text-center text-xs uppercase tracking-[0.3em] text-sand-700" data-reveal>one line</h2>
+
+  <div
+    class="card mx-auto mt-6 max-w-4xl cursor-pointer px-4 py-10 text-center sm:px-8 sm:py-14"
+    data-glow
+    data-reveal
+    data-fold-card
+    role="button"
+    tabindex="0"
+    aria-label={`${long} becomes ${short}`}
+  >
+    <div class="fold text-[min(1.35rem,2.75vw)] font-medium" data-fold aria-hidden="true">{
+      pieces.map(([text, kind]) =>
+        kind === 'gone' ? (
+          <span class="gone" style={`--w: ${text.length + 0.5}ch; --i: ${gone++}`}>{text}</span>
+        ) : kind === 'came' ? (
+          <span class="came">{text}</span>
+        ) : (
+          <span class={`r-${kind}`}>{text}</span>
+        ),
+      )
+    }</div>
+
+    <div class="mt-10 flex items-center justify-center gap-10 text-sand-500 sm:gap-16">
+      <div>
+        <div class="count text-3xl font-bold text-sand-50 sm:text-4xl" data-count-from={long.length} data-count-to={short.length}>
+          {long.length}
+        </div>
+        <div class="mt-1 text-[0.7rem] uppercase tracking-widest">chars</div>
+      </div>
+      <div>
+        <div class="count text-3xl font-bold text-sand-50 sm:text-4xl" data-count-from="4" data-count-to="1">4</div>
+        <div class="mt-1 text-[0.7rem] uppercase tracking-widest">cargo</div>
+      </div>
+      <div>
+        <div class="count text-3xl font-bold text-sand-50 sm:text-4xl" data-count-from="3" data-count-to="0">3</div>
+        <div class="mt-1 text-[0.7rem] uppercase tracking-widest">&amp;&amp;</div>
+      </div>
+    </div>
+
+    <button type="button" class="chip mt-10" data-run={short}>
+      <span class="chip-mark" aria-hidden="true">▶</span> run it
+    </button>
+  </div>
+</section>
+
+<script>
+  const card = document.querySelector<HTMLElement>('[data-fold-card]');
+  const fold = card?.querySelector<HTMLElement>('[data-fold]');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (card && fold) {
+    const counters = [...card.querySelectorAll<HTMLElement>('[data-count-from]')];
+
+    const count = (folded: boolean) => {
+      for (const el of counters) {
+        const from = Number(folded ? el.dataset.countFrom : el.dataset.countTo);
+        const to = Number(folded ? el.dataset.countTo : el.dataset.countFrom);
+        el.style.color = folded ? 'var(--color-rust-400)' : '';
+        if (reduced) {
+          el.textContent = String(to);
+          continue;
+        }
+        const start = performance.now();
+        const step = (now: number) => {
+          const t = Math.min(1, (now - start) / 900);
+          const eased = 1 - (1 - t) ** 3;
+          el.textContent = String(Math.round(from + (to - from) * eased));
+          if (t < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+    };
+
+    const set = (folded: boolean) => {
+      if (fold.hasAttribute('data-folded') === folded) return;
+      fold.toggleAttribute('data-folded', folded);
+      count(folded);
+    };
+
+    // Fold when it comes into view, unfold and fold again every few
+    // seconds while it stays there, unless the pointer is on it.
+    let timer = 0;
+    let hovering = false;
+    const loop = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (!hovering) set(!fold.hasAttribute('data-folded'));
+        loop();
+      }, fold.hasAttribute('data-folded') ? 4200 : 1800);
+    };
+
+    new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          window.setTimeout(() => set(true), 500);
+          if (!reduced) loop();
+        } else {
+          window.clearTimeout(timer);
+        }
+      },
+      { threshold: 0.6 },
+    ).observe(card);
+
+    card.addEventListener('pointerenter', () => (hovering = true));
+    card.addEventListener('pointerleave', () => (hovering = false));
+    const toggle = (event: Event) => {
+      if ((event.target as Element).closest('button')) return;
+      set(!fold.hasAttribute('data-folded'));
+    };
+    card.addEventListener('click', toggle);
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggle(event);
+      }
+    });
+  }
+</script>

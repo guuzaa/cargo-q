@@ -1,0 +1,792 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/jetbrains-mono';
+
+@theme {
+  /* The warm dark of a terminal at night. */
+  --color-ink-950: #090807;
+  --color-ink-900: #0e0c0a;
+  --color-ink-850: #14110e;
+  --color-ink-800: #1d1915;
+  --color-ink-700: #2b251e;
+  --color-ink-600: #3d352b;
+  /* The text on it. */
+  --color-sand-50: #faf6f0;
+  --color-sand-100: #f0e9df;
+  --color-sand-300: #c3b8a8;
+  --color-sand-500: #8b8173;
+  --color-sand-700: #5c5449;
+  /* Rust. */
+  --color-rust-300: #ffb08a;
+  --color-rust-400: #ff8f5e;
+  --color-rust-500: #f26b21;
+  --color-rust-600: #d1521a;
+  --color-rust-700: #9c3a12;
+  /* What a run says about itself. */
+  --color-moss-400: #7ee787;
+  --color-ember-400: #ff7b72;
+  --color-amber-400: #e3b341;
+  --color-sky-400: #79c0ff;
+
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-snap: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-sand-100);
+    font-family: var(--font-mono);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection {
+    background-color: var(--color-rust-600);
+    color: var(--color-sand-50);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-rust-500);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  button {
+    cursor: pointer;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The backdrop: a dot grid lit around the pointer, and slow embers.   */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+.backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgb(240 233 223 / 0.09) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(
+    520px circle at var(--mx, 50%) var(--my, 30%),
+    black 0%,
+    rgb(0 0 0 / 0.25) 45%,
+    rgb(0 0 0 / 0.08) 100%
+  );
+}
+.backdrop .ember {
+  position: absolute;
+  width: 46vmax;
+  height: 46vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.16;
+  animation: drift 26s ease-in-out infinite alternate;
+}
+.backdrop .ember-a {
+  background: var(--color-rust-500);
+  top: -18vmax;
+  left: -10vmax;
+}
+.backdrop .ember-b {
+  background: #6d3bd1;
+  bottom: -24vmax;
+  right: -14vmax;
+  opacity: 0.1;
+  animation-duration: 32s;
+  animation-delay: -9s;
+}
+@keyframes drift {
+  to {
+    transform: translate(12vmax, 8vmax) scale(1.15);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Reveal on scroll.                                                   */
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.7s var(--ease-snap),
+    transform 0.7s var(--ease-snap);
+  transition-delay: calc(var(--i, 0) * 80ms);
+}
+[data-reveal][data-shown] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* The title.                                                          */
+
+.title-q {
+  background: linear-gradient(120deg, var(--color-rust-300), var(--color-rust-500) 45%, var(--color-rust-700));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 0.95em;
+  margin-left: 0.08em;
+  vertical-align: -0.1em;
+  background: var(--color-rust-500);
+  border-radius: 2px;
+  animation: blink 1.1s steps(1) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The terminal window.                                                */
+
+.term-window {
+  position: relative;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgb(29 25 21 / 0.92), rgb(14 12 10 / 0.96));
+  box-shadow:
+    0 0 0 1px rgb(240 233 223 / 0.08),
+    0 30px 80px -20px rgb(0 0 0 / 0.8),
+    0 0 120px -40px rgb(242 107 33 / 0.35);
+  backdrop-filter: blur(12px);
+  transition: box-shadow 0.4s ease;
+  isolation: isolate;
+}
+/* The border: a light that follows the pointer, or spins while a run is on. */
+.term-window::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: radial-gradient(
+    360px circle at var(--gx, 50%) var(--gy, 0%),
+    rgb(255 143 94 / 0.55),
+    transparent 60%
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+@property --spin {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.term-window[data-state='busy']::before {
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--spin),
+    transparent 0deg,
+    var(--color-rust-500) 60deg,
+    var(--color-amber-400) 100deg,
+    transparent 160deg,
+    transparent 360deg
+  );
+  animation: spin 1.6s linear infinite;
+}
+@keyframes spin {
+  to {
+    --spin: 360deg;
+  }
+}
+.term-window[data-state='ok'] {
+  box-shadow:
+    0 0 0 1px rgb(126 231 135 / 0.5),
+    0 30px 80px -20px rgb(0 0 0 / 0.8),
+    0 0 120px -30px rgb(126 231 135 / 0.45);
+}
+.term-window[data-state='fail'] {
+  box-shadow:
+    0 0 0 1px rgb(255 123 114 / 0.55),
+    0 30px 80px -20px rgb(0 0 0 / 0.8),
+    0 0 120px -30px rgb(255 123 114 / 0.45);
+  animation: shake 0.42s var(--ease-snap);
+}
+.term-window[data-state='int'] {
+  box-shadow:
+    0 0 0 1px rgb(227 179 65 / 0.5),
+    0 30px 80px -20px rgb(0 0 0 / 0.8),
+    0 0 120px -30px rgb(227 179 65 / 0.4);
+}
+@keyframes shake {
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(1px);
+  }
+}
+
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  transition: transform 0.2s var(--ease-out-back), filter 0.2s;
+}
+.term-bar:hover .dot {
+  transform: scale(1.15);
+  filter: brightness(1.2);
+}
+
+.exit {
+  display: inline-flex;
+  min-width: 2.4em;
+  justify-content: center;
+  padding: 0.1em 0.55em;
+  border-radius: 999px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: rgb(240 233 223 / 0.07);
+  color: var(--color-sand-300);
+  transition:
+    background 0.3s,
+    color 0.3s;
+}
+.exit[data-kind='ok'] {
+  background: rgb(126 231 135 / 0.14);
+  color: var(--color-moss-400);
+}
+.exit[data-kind='fail'] {
+  background: rgb(255 123 114 / 0.15);
+  color: var(--color-ember-400);
+}
+.exit[data-kind='int'] {
+  background: rgb(227 179 65 / 0.15);
+  color: var(--color-amber-400);
+}
+.exit.pop {
+  animation: pop 0.45s var(--ease-out-back);
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.wasm-badge .pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-sand-700);
+  transition: background 0.3s;
+}
+.wasm-badge[data-ready] .pulse {
+  background: var(--color-moss-400);
+  box-shadow: 0 0 0 0 rgb(126 231 135 / 0.6);
+  animation: ping 2.4s ease-out infinite;
+}
+@keyframes ping {
+  0% {
+    box-shadow: 0 0 0 0 rgb(126 231 135 / 0.55);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px rgb(126 231 135 / 0);
+  }
+}
+
+#terminal .xterm {
+  padding: 0;
+}
+#terminal .xterm-viewport {
+  background: transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-600) transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* The split view: pills that appear, move and light up.               */
+
+.split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.6rem;
+}
+.split > * {
+  transition:
+    opacity 0.18s,
+    transform 0.18s;
+}
+.split > .entering {
+  animation: pill-in 0.38s var(--ease-out-back) both;
+  animation-delay: calc(min(var(--order, 0), 8) * 22ms);
+}
+.split > .leaving {
+  position: absolute;
+  opacity: 0;
+  transform: scale(0.85);
+  pointer-events: none;
+}
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.85);
+  }
+}
+
+.pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.38rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  border: 1px solid rgb(240 233 223 / 0.1);
+  background: rgb(29 25 21 / 0.75);
+  overflow: hidden;
+  transition:
+    border-color 0.25s,
+    background 0.25s,
+    opacity 0.25s,
+    transform 0.25s var(--ease-out-back);
+}
+.pill b {
+  font-weight: 650;
+}
+.pill-dim {
+  color: var(--color-sand-500);
+}
+.pill-args {
+  color: var(--color-sky-400);
+}
+.pill-note {
+  color: var(--color-sand-500);
+  font-size: 0.72rem;
+}
+.pill-command b {
+  color: var(--color-moss-400);
+}
+.pill-option {
+  color: var(--color-amber-400);
+  border-color: rgb(227 179 65 / 0.3);
+  background: rgb(227 179 65 / 0.07);
+}
+.pill-repeat {
+  color: var(--color-rust-300);
+  font-weight: 700;
+  border-color: rgb(242 107 33 / 0.4);
+  background: rgb(242 107 33 / 0.1);
+}
+.pill-error {
+  color: var(--color-ember-400);
+  border-color: rgb(255 123 114 / 0.4);
+  background: rgb(255 123 114 / 0.08);
+  animation: shake 0.4s var(--ease-snap);
+  white-space: normal;
+}
+.pill-fix {
+  color: var(--color-sand-100);
+  border-style: dashed;
+  border-color: rgb(126 231 135 / 0.45);
+}
+.pill-fix:hover {
+  background: rgb(126 231 135 / 0.1);
+  transform: translateY(-1px);
+}
+.pill-state:empty {
+  display: none;
+}
+.pill-state {
+  display: inline-flex;
+  width: 0.95em;
+  height: 0.95em;
+}
+.pill-icon {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 20;
+  animation: draw 0.4s var(--ease-snap) both;
+}
+@keyframes draw {
+  from {
+    stroke-dashoffset: 20;
+  }
+}
+.pill-spin {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgb(242 107 33 / 0.25);
+  border-top-color: var(--color-rust-500);
+  animation: rotate 0.7s linear infinite;
+}
+@keyframes rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pill[data-state='pending'] {
+  opacity: 0.45;
+}
+.pill[data-state='running'] {
+  border-color: rgb(242 107 33 / 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -10px rgb(242 107 33 / 0.6);
+}
+.pill[data-state='running']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 143 94 / 0.18) 50%, transparent 70%);
+  animation: sheen 1.1s linear infinite;
+}
+@keyframes sheen {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.pill[data-state='ok'] {
+  border-color: rgb(126 231 135 / 0.5);
+  background: rgb(126 231 135 / 0.08);
+  color: var(--color-moss-400);
+}
+.pill[data-state='fail'] {
+  border-color: rgb(255 123 114 / 0.6);
+  background: rgb(255 123 114 / 0.1);
+  color: var(--color-ember-400);
+  animation: shake 0.4s var(--ease-snap);
+}
+.pill[data-state='fail'] b {
+  color: var(--color-ember-400);
+}
+.pill[data-state='skipped'] {
+  opacity: 0.35;
+  text-decoration: line-through;
+  text-decoration-color: var(--color-sand-500);
+}
+
+.joint {
+  color: var(--color-sand-700);
+  font-size: 0.9rem;
+}
+.joint-parallel {
+  color: var(--color-rust-400);
+  font-weight: 700;
+}
+.split-hint {
+  color: var(--color-sand-700);
+  font-size: 0.8rem;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  padding: 0.1em 0.45em;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  color: var(--color-sand-300);
+  background: linear-gradient(180deg, var(--color-ink-700), var(--color-ink-800));
+  box-shadow:
+    inset 0 -2px 0 rgb(0 0 0 / 0.45),
+    0 0 0 1px rgb(240 233 223 / 0.08);
+}
+
+/* A command line, in the terminal's colors (Line.astro). */
+.r-program {
+  color: var(--color-sand-50);
+  font-weight: 700;
+}
+.r-sub {
+  color: var(--color-rust-500);
+  font-weight: 800;
+}
+.r-option {
+  color: var(--color-amber-400);
+}
+.r-command {
+  color: var(--color-moss-400);
+  font-weight: 650;
+}
+.r-arg {
+  color: var(--color-sky-400);
+}
+.r-error {
+  color: var(--color-ember-400);
+  text-decoration: underline wavy rgb(255 123 114 / 0.7);
+  text-underline-offset: 4px;
+}
+.r-after {
+  color: var(--color-sand-500);
+}
+.r-op {
+  color: var(--color-rust-300);
+}
+
+/* ------------------------------------------------------------------ */
+/* Chips that type a line into the terminal.                           */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--color-sand-300);
+  border: 1px solid rgb(240 233 223 / 0.1);
+  background: rgb(20 17 14 / 0.6);
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    transform 0.25s var(--ease-out-back),
+    background 0.2s;
+}
+.chip:hover {
+  color: var(--color-sand-50);
+  border-color: rgb(242 107 33 / 0.55);
+  background: rgb(242 107 33 / 0.08);
+  transform: translateY(-2px);
+}
+.chip:active {
+  transform: translateY(0) scale(0.96);
+}
+.chip .chip-mark {
+  color: var(--color-rust-500);
+  transition: transform 0.25s var(--ease-out-back);
+}
+.chip:hover .chip-mark {
+  transform: translateX(2px) scale(1.2);
+}
+
+/* ------------------------------------------------------------------ */
+/* Cards with a light under the pointer.                               */
+
+.card {
+  position: relative;
+  border-radius: 16px;
+  background: rgb(20 17 14 / 0.7);
+  border: 1px solid rgb(240 233 223 / 0.07);
+  overflow: hidden;
+  transition:
+    transform 0.35s var(--ease-snap),
+    border-color 0.3s;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(260px circle at var(--gx, -100px) var(--gy, -100px), rgb(242 107 33 / 0.14), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.card:hover {
+  transform: translateY(-4px);
+  border-color: rgb(242 107 33 / 0.35);
+}
+.card:hover::before {
+  opacity: 1;
+}
+
+/* The flag cards turn over to show what the flag does. */
+.flip {
+  perspective: 900px;
+}
+.flip-inner {
+  position: relative;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s var(--ease-snap);
+}
+.flip:hover .flip-inner,
+.flip:focus-within .flip-inner {
+  transform: rotateY(180deg);
+}
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+/* The card lifts as a whole; its faces keep their own turn. */
+.flip {
+  transition: transform 0.35s var(--ease-snap);
+}
+.flip:hover {
+  transform: translateY(-4px);
+}
+.flip .flip-face.card:hover {
+  transform: none;
+}
+.flip .flip-back.card,
+.flip .flip-back.card:hover {
+  transform: rotateY(180deg);
+}
+
+/* ------------------------------------------------------------------ */
+/* `&&` folding into `q`.                                              */
+
+.fold {
+  white-space: nowrap;
+}
+.fold .gone {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  max-width: var(--w);
+  color: var(--color-ember-400);
+  transition:
+    max-width 0.7s var(--ease-snap),
+    opacity 0.5s,
+    filter 0.5s;
+  transition-delay: calc(var(--i, 0) * 90ms);
+}
+.fold .came {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  max-width: 0;
+  opacity: 0;
+  color: var(--color-rust-500);
+  font-weight: 800;
+  transition:
+    max-width 0.6s var(--ease-out-back) 0.55s,
+    opacity 0.4s 0.55s;
+}
+.fold[data-folded] .gone {
+  max-width: 0;
+  opacity: 0;
+  filter: blur(4px);
+}
+.fold[data-folded] .came {
+  max-width: 3ch;
+  opacity: 1;
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+  transition: color 0.4s;
+}
+
+/* ------------------------------------------------------------------ */
+/* Rolling digits.                                                     */
+
+.odo-col {
+  display: inline-block;
+  height: 1em;
+  line-height: 1;
+  overflow: hidden;
+  vertical-align: -0.12em;
+}
+.odo-strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 1.1s var(--ease-snap);
+  transition-delay: calc(var(--d) * 40ms);
+}
+.odo-strip > span {
+  height: 1em;
+}
+[data-rolled] .odo-strip {
+  transform: translateY(calc(var(--d) * -1em));
+}
+.odo-reset .odo-strip {
+  transition: none;
+}
+
+.exit-row {
+  transition:
+    background 0.25s,
+    transform 0.25s var(--ease-snap);
+}
+.exit-row:hover {
+  background: rgb(240 233 223 / 0.03);
+}
+.exit-row .run-arrow {
+  opacity: 0;
+  transform: translateX(-6px);
+  transition:
+    opacity 0.2s,
+    transform 0.25s var(--ease-out-back);
+}
+.exit-row:hover .run-arrow {
+  opacity: 1;
+  transform: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Copy buttons.                                                       */
+
+.copy .copy-done {
+  display: none;
+}
+.copy[data-copied] .copy-idle {
+  display: none;
+}
+.copy[data-copied] .copy-done {
+  display: inline;
+  animation: pop 0.4s var(--ease-out-back);
+  color: var(--color-moss-400);
+}
+
+.spark {
+  position: fixed;
+  width: 5px;
+  height: 5px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 60;
+}
+
+/* ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

@@ -98,16 +98,20 @@ pub extern "C" fn cq_well_known_len() -> usize {
 
 /// What a command line means, as a JSON string.
 ///
-/// The tokens are the arguments that follow `cargo q`, each one followed by
-/// a NUL, and they are read from the buffer [`cq_input_buffer`] handed out.
-/// The NUL ends a token rather than separating two, so an empty token
-/// (`cargo q check ""`) reaches the parser the way a shell would pass it.
-/// The answer is a JSON object:
+/// The tokens are the whole command line as a shell would pass it, program
+/// name first (`cargo`, `q`, `check`, …), each one followed by a NUL, and
+/// they are read from the buffer [`cq_input_buffer`] handed out. cargo-q
+/// drops the program name and the `q` itself, as a run does. The NUL ends a
+/// token rather than separating two, so an empty token (`cargo q check ""`)
+/// reaches the parser the way a shell would pass it. The answer is a JSON
+/// object:
 ///
 /// ```text
 /// {"options":["--dry-run"],"commands":[{"name":"build","args":["-r"]}],
-///  "tokens":[{"command":0,"role":"name"},{"command":0,"role":"argument"}],
-///  "error":null,"help":null,"version":null}
+///  "settings":{"verbose":false,"parallel":false,"keepGoing":false,
+///              "dryRun":true,"noFancy":false,"repeat":1},
+///  "plan":"1 command(s), sequentially:\n  cargo build -r\n",
+///  "exitCode":null,"error":null,"help":null,"version":null}
 /// ```
 ///
 /// The bytes of the answer live in the module's memory; their length is
@@ -127,7 +131,7 @@ pub extern "C" fn cq_inspect(len: usize) -> *const u8 {
     let refs: Vec<&str> = names.iter().map(String::as_str).collect();
     let known = Subcommands::with_names(&refs);
 
-    let inspection = Cli::inspect_with(tokens, &known);
+    let inspection = Cli::inspect_argv_with(tokens, &known);
     let json = to_json(&inspection);
 
     let mut result = RESULT.lock().expect("the answer buffer is not poisoned");
@@ -168,38 +172,45 @@ fn to_json(inspection: &cargo_q::cli::Inspection) -> String {
         json.push_str("]}");
     }
 
-    json.push_str("],\"error\":");
-    match &inspection.error {
-        Some(error) => {
-            json.push('"');
-            escape(&mut json, error);
-            json.push('"');
-        }
+    let settings = &inspection.settings;
+    json.push_str(&format!(
+        "],\"settings\":{{\"verbose\":{},\"parallel\":{},\"keepGoing\":{},\"dryRun\":{},\"noFancy\":{},\"repeat\":{}}}",
+        settings.verbose,
+        settings.parallel,
+        settings.keep_going,
+        settings.dry_run,
+        settings.no_fancy,
+        settings.repeat,
+    ));
+
+    json.push_str(",\"plan\":");
+    string_or_null(&mut json, inspection.plan.as_deref());
+    json.push_str(",\"exitCode\":");
+    match inspection.exit_code {
+        Some(code) => json.push_str(&code.to_string()),
         None => json.push_str("null"),
     }
-
+    json.push_str(",\"error\":");
+    string_or_null(&mut json, inspection.error.as_deref());
     json.push_str(",\"help\":");
-    match inspection.help {
-        Some(help) => {
-            json.push('"');
-            escape(&mut json, help);
-            json.push('"');
-        }
-        None => json.push_str("null"),
-    }
-
+    string_or_null(&mut json, inspection.help);
     json.push_str(",\"version\":");
-    match inspection.version {
-        Some(version) => {
-            json.push('"');
-            escape(&mut json, version);
-            json.push('"');
-        }
-        None => json.push_str("null"),
-    }
+    string_or_null(&mut json, inspection.version);
 
     json.push('}');
     json
+}
+
+/// A JSON string, or `null`.
+fn string_or_null(json: &mut String, text: Option<&str>) {
+    match text {
+        Some(text) => {
+            json.push('"');
+            escape(json, text);
+            json.push('"');
+        }
+        None => json.push_str("null"),
+    }
 }
 
 /// Write a string into a JSON string, without the quotes around it.
