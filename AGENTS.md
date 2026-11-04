@@ -58,7 +58,7 @@ Worker. It has its own toolchain (pnpm) and its own README (`page/README.md`).
 - `page/wasm/` is a small Rust crate that compiles cargo-q's parser to
   WebAssembly, so the page shows what cargo-q itself would do with a command
   line. It is a `cdylib` with a plain C ABI — no wasm-bindgen.
-- The terminal at the top of the page takes input: what is typed is parsed
+- The terminal on the landing page takes input: what is typed is parsed
   by cargo-q's own parser, and the cargo commands are then *simulated*
   (`page/src/scripts/simulate.ts`), so nothing runs on the visitor's
   machine. `cargo test` fails in the simulation on purpose.

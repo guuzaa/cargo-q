@@ -1,0 +1,76 @@
+---
+/**
+ * The one-line promise: four cargo commands folding into one. It sits in
+ * the hero, under the tagline, and the terminal that proves it is the next
+ * thing on the page.
+ */
+const pieces: [string, 'program' | 'came' | 'command' | 'gone'][] = [
+  ['cargo', 'program'],
+  [' q', 'came'],
+  [' fmt', 'command'],
+  [' && cargo', 'gone'],
+  [' clippy', 'command'],
+  [' && cargo', 'gone'],
+  [' check', 'command'],
+  [' && cargo', 'gone'],
+  [' test', 'command'],
+];
+const long = pieces.filter(([, kind]) => kind !== 'came').map(([text]) => text).join('');
+const short = pieces.filter(([, kind]) => kind !== 'gone').map(([text]) => text).join('');
+let gone = 0;
+---
+
+<div class="mt-7 text-center sm:mt-9" data-reveal style="--i: 2">
+  <div class="fold-scroll">
+    <div
+      class="inline-block cursor-pointer transition hover:brightness-110"
+      data-fold-card
+      role="button"
+      tabindex="0"
+      title="Click to fold or unfold"
+      aria-label={`${long} becomes ${short}. Fold or unfold it.`}
+    >
+      <div class="fold text-[min(1.75rem,2.75vw)] font-medium" data-fold aria-hidden="true">{
+        pieces.map(([text, kind]) =>
+          kind === 'gone' ? (
+            <span class="gone" style={`--w: ${text.length + 0.5}ch; --i: ${gone++}`}>{text}</span>
+          ) : kind === 'came' ? (
+            <span class="came">{text}</span>
+          ) : (
+            <span class={`r-${kind}`}>{text}</span>
+          ),
+        )
+      }</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const card = document.querySelector<HTMLElement>('[data-fold-card]');
+  const fold = card?.querySelector<HTMLElement>('[data-fold]');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (card && fold) {
+    const set = (folded: boolean) => {
+      if (fold.hasAttribute('data-folded') === folded) return;
+      fold.toggleAttribute('data-folded', folded);
+    };
+
+    // Fold once, just after the hero has settled. The line then stays
+    // short; a click (or Enter/Space) folds or unfolds it.
+    const timer = window.setTimeout(() => set(true), reduced ? 0 : 1000);
+
+    const stop = () => window.clearTimeout(timer);
+    card.addEventListener('pointerdown', stop, { passive: true });
+    card.addEventListener('keydown', stop);
+
+    const toggle = () => set(!fold.hasAttribute('data-folded'));
+    card.addEventListener('click', toggle);
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggle();
+      }
+    });
+  }
+</script>

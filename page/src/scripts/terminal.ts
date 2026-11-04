@@ -1,5 +1,5 @@
 /**
- * The terminal at the top of the page, and everything that reacts to it:
+ * The terminal under the hero, and everything that reacts to it:
  * the split view, the exit-code badge, the window's glow and the presets.
  */
 
@@ -151,7 +151,7 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
         observer.disconnect();
         setTimeout(() => {
           if (!touched) void shell.type(PRESETS[0], { instant: reduced });
-        }, 700);
+        }, 1200);
       },
       { threshold: 0.5 },
     );

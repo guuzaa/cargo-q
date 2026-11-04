@@ -1,0 +1,83 @@
+---
+/**
+ * The terminal: type a line, see how cargo-q splits it, watch it run.
+ */
+const presets = [
+  { line: 'cargo q fmt clippy check test', mark: '▶' },
+  { line: 'cargo q -k test build', mark: '↷' },
+  { line: 'cargo q -p check clippy doc', mark: '∥' },
+  { line: 'cargo q --repeat 3 check', mark: '×' },
+  { line: 'cargo q -n build --features=foo', mark: '?' },
+  { line: 'cargo q build --features feature1', mark: '✗' },
+  { line: 'cargo q -v run', mark: '≡' },
+];
+const keys = [
+  ['↑', 'history'],
+  ['tab', 'complete'],
+  ['→', 'accept'],
+  ['^C', 'stop'],
+  ['^L', 'clear'],
+];
+---
+
+<section id="demo" class="relative mx-auto max-w-5xl px-4 pt-8" aria-label="cargo-q in a terminal">
+  <div data-reveal>
+    <div id="term-window" class="term-window" data-glow>
+      <div class="term-bar flex h-10 items-center gap-3 border-b border-sand-50/5 px-4 text-xs text-sand-500">
+        <span class="flex gap-2" aria-hidden="true">
+          <span class="dot bg-[#ff5f57]"></span>
+          <span class="dot bg-[#febc2e]"></span>
+          <span class="dot bg-[#28c840]"></span>
+        </span>
+        <span class="flex-1 truncate text-center">~/cargo-q</span>
+        <span id="wasm-badge" class="wasm-badge hidden items-center gap-1.5 sm:flex" title="loading the parser…">
+          <span class="pulse" aria-hidden="true"></span>wasm
+        </span>
+        <span class="flex items-center gap-1.5" aria-live="polite">
+          <span aria-label="last exit code">$?</span>
+          <span id="exit-code" class="exit">0</span>
+        </span>
+      </div>
+      <div class="px-3 py-3 sm:px-4">
+        <div
+          id="terminal"
+          class="h-[18rem] sm:h-[19rem]"
+          role="application"
+          aria-label="A shell where cargo-q's own parser, compiled to WebAssembly, reads what you type; the cargo commands are simulated"
+        >
+        </div>
+      </div>
+    </div>
+
+    <div class="relative mt-5">
+      <div id="split" class="split" aria-live="polite" aria-label="How cargo-q splits the line"></div>
+      <div id="split-round" class="mt-2 h-4 text-center text-xs text-rust-400"></div>
+    </div>
+
+    <div class="mt-4 flex flex-wrap justify-center gap-2">
+      {
+        presets.map((preset, i) => (
+          <button type="button" class="chip" data-run={preset.line} data-reveal style={`--i: ${3 + i * 0.5}`}>
+            <span class="chip-mark" aria-hidden="true">{preset.mark}</span>
+            {preset.line.slice('cargo q '.length)}
+          </button>
+        ))
+      }
+    </div>
+
+    <div class="mt-5 hidden flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-sand-600 sm:flex">
+      {
+        keys.map(([key, what]) => (
+          <span class="flex items-center gap-1.5">
+            <span class="kbd">{key}</span>
+            {what}
+          </span>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<script>
+  import '../scripts/terminal';
+</script>

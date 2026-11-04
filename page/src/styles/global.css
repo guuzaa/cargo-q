@@ -681,6 +681,15 @@
 .fold {
   white-space: nowrap;
 }
+/* If a very narrow phone still overflows, let the line scroll rather
+   than clip; the scrollbar itself stays out of sight. */
+.fold-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.fold-scroll::-webkit-scrollbar {
+  display: none;
+}
 .fold .gone,
 .fold .came {
   /* A piece keeps the space in front of it. An inline block lays its
@@ -720,11 +729,6 @@
 .fold[data-folded] .came {
   max-width: 3ch;
   opacity: 1;
-}
-
-.count {
-  font-variant-numeric: tabular-nums;
-  transition: color 0.4s;
 }
 
 /* ------------------------------------------------------------------ */

@@ -8,7 +8,7 @@ Cloudflare.
 | Path | What it is |
 | --- | --- |
 | `src/` | The site: Astro components, the styles, and the scripts that run in the browser. |
-| `src/scripts/shell.ts` | The shell in the terminal at the top of the page: it takes what is typed, asks cargo-q's parser what it means, and runs the simulation. |
+| `src/scripts/shell.ts` | The shell in the terminal under the hero: it takes what is typed, asks cargo-q's parser what it means, and runs the simulation. |
 | `src/scripts/palette.ts` | The colours of the page, shared by the stylesheet and by the scripts that paint the terminal. |
 | `src/scripts/simulate.ts` | The rehearsal of a run: the progress display, the failures, the summary and the exit code. `cargo test` fails in it on purpose. |
 | `src/worker.ts` | The Worker: it hands every request to the static assets. |
