@@ -1,0 +1,23 @@
+[package]
+name = "cargo-q-wasm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "A WebAssembly build of cargo-q's parser, for the landing page."
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+cargo-q = { path = "../.." }
+
+# Its own workspace: the site is not part of the cargo-q package.
+[workspace]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

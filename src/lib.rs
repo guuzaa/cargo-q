@@ -7,8 +7,18 @@
 
 pub mod cli;
 pub mod executor;
+#[cfg(not(target_arch = "wasm32"))]
+#[path = "process.rs"]
+pub mod process;
+#[cfg(target_arch = "wasm32")]
+#[path = "process_wasm.rs"]
 pub mod process;
 pub mod progress;
 pub mod routine;
 pub mod strategy;
 mod subcommand;
+
+pub use crate::subcommand::Subcommands;
+
+/// The version of cargo-q this crate was built from.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -30,6 +30,18 @@ impl Routine {
         }
     }
 
+    /// The name of the cargo subcommand.
+    #[must_use]
+    pub fn name(&self) -> &OsStr {
+        &self.name
+    }
+
+    /// The arguments that go with the command.
+    #[must_use]
+    pub fn args(&self) -> &[OsString] {
+        &self.args
+    }
+
     /// Parse one or more routines from command-line tokens.
     ///
     /// A token that does not start with `-` starts a new command. Subsequent

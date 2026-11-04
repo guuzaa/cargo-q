@@ -1,0 +1,71 @@
+---
+const links = [
+  { href: 'https://crates.io/crates/cargo-q', label: 'crates.io' },
+  { href: 'https://docs.rs/cargo-q', label: 'docs.rs' },
+  { href: 'https://github.com/guuzaa/cargo-q', label: 'GitHub' },
+  { href: 'https://github.com/guuzaa/cargo-q/blob/main/CHANGELOG.md', label: 'Changelog' },
+];
+---
+
+<section id="install" class="border-b border-ink-800 py-20 sm:py-28">
+  <div class="mx-auto max-w-6xl px-5">
+    <div class="grid gap-10 lg:grid-cols-2 lg:items-center">
+      <div>
+        <h2 class="text-2xl font-bold tracking-tight text-sand-50 sm:text-3xl">Get it</h2>
+        <p class="mt-4 leading-relaxed text-sand-300">
+          cargo-q is a cargo subcommand: it is installed with cargo, and it is run as
+          <code class="text-sand-100">cargo q</code>.
+        </p>
+
+        <div class="mt-8 grid gap-3">
+          <div class="terminal flex items-center gap-3 px-4 py-2.5 text-sm">
+            <span class="prompt">$</span>
+            <code>cargo install cargo-q --locked</code>
+            <button
+              type="button"
+              data-copy="cargo install cargo-q --locked"
+              class="ml-auto rounded border border-ink-700 px-2 py-0.5 text-xs text-sand-500 transition-colors hover:border-rust-600 hover:text-rust-400"
+            >
+              copy
+            </button>
+          </div>
+          <div class="terminal flex items-center gap-3 px-4 py-2.5 text-sm">
+            <span class="prompt">$</span>
+            <code>git clone https://github.com/guuzaa/cargo-q</code>
+            <button
+              type="button"
+              data-copy="git clone https://github.com/guuzaa/cargo-q"
+              class="ml-auto rounded border border-ink-700 px-2 py-0.5 text-xs text-sand-500 transition-colors hover:border-rust-600 hover:text-rust-400"
+            >
+              copy
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          {
+            links.map((link) => (
+              <a
+                class="link"
+                href={link.href}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                {link.label} →
+              </a>
+            ))
+          }
+        </div>
+      </div>
+
+      <div class="terminal overflow-hidden shadow-2xl shadow-black/40">
+        <div class="terminal-bar">the whole of it</div>
+        <pre class="overflow-x-auto p-5 text-sm leading-relaxed"><code><span class="text-sand-500">$ </span><span class="text-sand-100">cargo q fmt clippy check test</span>
+<span class="text-sand-500">$ </span><span class="text-sand-100">cargo q build -r test --no-run</span>
+<span class="text-sand-500">$ </span><span class="text-sand-100">cargo q -k fmt clippy check test</span>
+<span class="text-sand-500">$ </span><span class="text-sand-100">cargo q --repeat 3 check test</span>
+<span class="text-sand-500">$ </span><span class="text-sand-100">cargo q -n build --features test</span></code></pre>
+      </div>
+    </div>
+  </div>
+</section>

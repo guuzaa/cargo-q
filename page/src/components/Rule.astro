@@ -1,0 +1,59 @@
+---
+---
+
+<section id="rule" class="border-b border-ink-800 py-20 sm:py-28">
+  <div class="mx-auto max-w-6xl px-5">
+    <h2 class="text-2xl font-bold tracking-tight text-sand-50 sm:text-3xl">
+      One rule, and it surprises people
+    </h2>
+    <p class="mt-4 max-w-3xl leading-relaxed text-sand-300">
+      A word that starts with a dash is an argument to the command before it. Any other word starts
+      a new command — even when you meant it as a value. That is the whole rule, and it is the rule
+      that catches people out.
+    </p>
+
+    <div class="mt-10 grid gap-6 lg:grid-cols-2">
+      <div class="terminal">
+        <div class="terminal-bar">the trap</div>
+        <div class="p-5 sm:p-6">
+          <p class="flex flex-wrap items-baseline gap-1.5 text-sm">
+            <span class="text-sand-500">$</span>
+            <span class="token token-plain">cargo q</span>
+            <span class="token token-command">build</span>
+            <span class="token token-lost">--features</span>
+            <span class="token token-command-next">test</span>
+          </p>
+
+          <p class="mt-5 text-sm text-sand-500">is two commands:</p>
+          <pre class="mt-2 text-sm leading-relaxed text-sand-300"><code>2 command(s), sequentially:
+  <span class="text-rust-300">cargo build</span> <span class="text-ember-400">--features</span>
+  <span class="text-sky-400">cargo test</span></code></pre>
+
+          <p class="mt-5 text-sm leading-relaxed text-sand-500">
+            <span class="text-ember-400">--features</span> was left without a value, and
+            <span class="text-sky-400">test</span> became a command of its own.
+          </p>
+        </div>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-bar">two ways to keep the value</div>
+        <div class="p-5 sm:p-6">
+          <p class="text-sm text-sand-500">Quote the whole command:</p>
+          <pre class="mt-2 text-sm leading-relaxed text-sand-300"><code><span class="text-sand-500">$ </span>cargo q "build --features test"</code></pre>
+
+          <p class="mt-5 text-sm text-sand-500">Or attach the value with an equals sign:</p>
+          <pre class="mt-2 text-sm leading-relaxed text-sand-300"><code><span class="text-sand-500">$ </span>cargo q build --features=test</code></pre>
+
+          <p class="mt-5 text-sm leading-relaxed text-sand-500">
+            And when the value is not a subcommand at all, cargo-q says so, and says how to write
+            it instead:
+          </p>
+          <pre class="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ember-400"><code>error: 'feature1' is not a cargo subcommand
+help: quote the whole command: cargo q "build --features feature1"
+help: or attach the value: cargo q build --features=feature1</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

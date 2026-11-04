@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- The library builds for `wasm32-unknown-unknown` now. A browser has no processes to spawn and no signals to catch, so the wasm32 build parses a command line and says what it means, but cannot run it. The landing page of cargo-q uses this: the parser it shows is this code, so the page and a real run always agree.
+- `Cli::inspect` and `Cli::inspect_with` say what a command line means, without running it: cargo-q's own options and the commands the line was split into. A line that asks for the help or for the version says so, too. `Cli::inspect` asks cargo which subcommands it knows; `Cli::inspect_with` takes the answer, for a caller that cannot ask cargo.
+- `Subcommands::with_names` builds a lookup over an explicit set of names, and `Subcommands::well_known` returns the names cargo-q knows without asking cargo at all.
+- `Routine::name` and `Routine::args` read a parsed command: its name and its arguments.
+- `cargo_q::VERSION` is the version of cargo-q the crate was built from.
+
 ## [0.7.1] - 2026-11-01
 ### Fixed
 - A verbose child no longer hangs on the terminal. It used to lead a process group of its own, which put it in a background process group as far as the terminal was concerned, so a read from the terminal made the kernel send `SIGTTIN` and stop it: `cargo q -v run` hung on any program that reads stdin, with no error message and no output — the child was stopped and cargo-q waited on it forever. A verbose child now stays in cargo-q's own foreground process group, so the terminal's Ctrl-C reaches it and everything it started, and job control keeps working. The price is that a signal sent to cargo-q alone no longer reaches the children a verbose child started, and such a child cannot be signalled as a group without hitting cargo-q as well, so cargo-q tracks whether a child leads its own group and signals it by pid when it does not: the first interrupt asks it to stop, a later one kills it.

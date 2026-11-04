@@ -50,6 +50,26 @@ splitting rule), verify it with `cargo test` — the integration test in
 `tests/exit_status.rs` runs the freshly built binary through
 `CARGO_BIN_EXE_cargo-q` — or run the binary in `./target` directly.
 
+## The landing page
+
+`page/` is the site at <https://cargo-q.dev>: Astro, Tailwind, a Cloudflare
+Worker. It has its own toolchain (pnpm) and its own README (`page/README.md`).
+
+- `page/wasm/` is a small Rust crate that compiles cargo-q's parser to
+  WebAssembly, so the page shows what cargo-q itself would do with a command
+  line. It is a `cdylib` with a plain C ABI — no wasm-bindgen.
+- The terminal at the top of the page takes input: what is typed is parsed
+  by cargo-q's own parser, and the cargo commands are then *simulated*
+  (`page/src/scripts/simulate.ts`), so nothing runs on the visitor's
+  machine. `cargo test` fails in the simulation on purpose.
+- The wasm32 build of this crate has no processes to spawn: `src/process.rs`
+  is the native one, and `src/process_wasm.rs` a stub with the same API.
+  `cargo q "check --target wasm32-unknown-unknown"` must keep working.
+- `page/public/demo/*.ansi` are recordings of real runs; `page/README.md`
+  says how to record a new one.
+- The Rust CI also checks the wasm32 build; `.github/workflows/page.yml`
+  deploys the site on a push to `main`.
+
 ## Project facts
 
 - MSRV 1.75, edition 2021 (`rust-version` in Cargo.toml): no newer std APIs.

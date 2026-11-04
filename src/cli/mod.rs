@@ -11,6 +11,7 @@ use self::help::{print_help, print_version, Help};
 use crate::executor::{Executor, Options};
 use crate::process::{self, Termination};
 use crate::routine::Routine;
+use crate::subcommand::Subcommands;
 use lexopt::prelude::*;
 use lexopt::{Arg, Parser};
 use std::ffi::{OsStr, OsString};
@@ -83,6 +84,90 @@ impl Cli {
             Ok(Outcome::Help(help)) => print_help(help),
             Ok(Outcome::Version) => print_version(),
             Err(err) => err.report(),
+        }
+    }
+
+    /// What a command line means, without running anything.
+    ///
+    /// The arguments are the ones that follow `cargo q`: cargo-q's own
+    /// options first, then the commands to run. The commands are split the
+    /// way a run would split them, so a caller can show what an invocation
+    /// does before it does it.
+    ///
+    /// A line cargo-q would reject is reported in [`Inspection::error`],
+    /// with the message a run would print.
+    #[must_use]
+    pub fn inspect(args: impl IntoIterator<Item = OsString>) -> Inspection {
+        Self::inspect_with(args, &Subcommands::new())
+    }
+
+    /// Like [`Self::inspect`], but with an explicit set of known cargo
+    /// subcommand names.
+    ///
+    /// For a caller that cannot ask cargo: one that has no cargo to ask, or
+    /// one that runs where cargo cannot be started. The split is then the
+    /// one a cargo would make whose subcommands are cargo-q's well-known
+    /// names plus these (see [`Subcommands::with_names`]).
+    #[must_use]
+    pub fn inspect_with(
+        args: impl IntoIterator<Item = OsString>,
+        known: &Subcommands,
+    ) -> Inspection {
+        let args: Vec<OsString> = args.into_iter().collect();
+
+        match Self::parse_from(&args) {
+            Ok(Outcome::Run(cli)) => cli.inspect_commands(known),
+            Ok(Outcome::Help(help)) => Inspection {
+                help: Some(help.text()),
+                ..Inspection::default()
+            },
+            Ok(Outcome::Version) => Inspection {
+                version: Some(crate::VERSION),
+                ..Inspection::default()
+            },
+            Err(err) => Inspection {
+                error: Some(err.message()),
+                ..Inspection::default()
+            },
+        }
+    }
+
+    /// The commands this command line would run.
+    fn inspect_commands(&self, known: &Subcommands) -> Inspection {
+        let options = self
+            .flags
+            .iter()
+            .map(|flag| match flag {
+                Flag::Repeat => format!("--repeat {}", self.repeat.unwrap_or(1)),
+                other => other.usage().to_string(),
+            })
+            .collect();
+
+        match Routine::parse_many_with(&self.commands, known) {
+            Ok(routines) => Inspection {
+                options,
+                commands: routines
+                    .iter()
+                    .map(|routine| Command {
+                        name: routine.name().to_string_lossy().into_owned(),
+                        args: routine
+                            .args()
+                            .iter()
+                            .map(|arg| arg.to_string_lossy().into_owned())
+                            .collect(),
+                    })
+                    .collect(),
+                help: None,
+                version: None,
+                error: None,
+            },
+            Err(message) => Inspection {
+                options,
+                commands: Vec::new(),
+                help: None,
+                version: None,
+                error: Some(message),
+            },
         }
     }
 
@@ -254,6 +339,33 @@ impl Cli {
         };
         Executor::new(routines, options).execute()
     }
+}
+
+/// What a command line means, without running it.
+///
+/// The same split a run would make, in a form a program can use: this is
+/// what `--dry-run` prints, as data.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Inspection {
+    /// cargo-q's own options, in the order they were given.
+    pub options: Vec<String>,
+    /// The commands the line was split into, in the order they would run.
+    pub commands: Vec<Command>,
+    /// The help text the line asks for, when it asks for any.
+    pub help: Option<&'static str>,
+    /// The version the line asks for, when it asks for it.
+    pub version: Option<&'static str>,
+    /// The error the line would report, when it is not one cargo-q accepts.
+    pub error: Option<String>,
+}
+
+/// One command a command line was split into.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Command {
+    /// The name of the cargo subcommand.
+    pub name: String,
+    /// The arguments that go with it.
+    pub args: Vec<String>,
 }
 
 /// One of cargo-q's own options.

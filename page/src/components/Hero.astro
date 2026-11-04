@@ -1,0 +1,103 @@
+---
+import Terminal from './Terminal.astro';
+
+const examples = [
+  { line: 'cargo q fmt clippy check test', note: 'four commands, one invocation' },
+  { line: 'cargo q -n build --features test', note: 'what the split looks like' },
+  { line: 'cargo q build --features test', note: 'the trap: a value that becomes a command' },
+  { line: 'cargo q -k fmt clippy check test', note: 'keep going after a failure' },
+  { line: 'cargo q --repeat 3 check test', note: 'the whole list, three times over' },
+  { line: 'cargo q --help', note: 'the help' },
+];
+---
+
+<section class="relative overflow-hidden border-b border-ink-800">
+  <div
+    class="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_55%_at_50%_-15%,rgba(242,107,33,0.20),transparent)]"
+  >
+  </div>
+
+  <div class="relative mx-auto max-w-6xl px-5 pb-20 pt-16 sm:pt-24">
+    <p class="text-xs uppercase tracking-[0.3em] text-rust-500">a cargo subcommand</p>
+
+    <h1 class="mt-5 text-4xl font-bold tracking-tight text-sand-50 sm:text-6xl">
+      Run Cargo only once.
+    </h1>
+
+    <p class="mt-6 max-w-2xl text-base leading-relaxed text-sand-300 sm:text-lg">
+      Many Cargo commands, just one invocation. cargo-q runs them one after another, stops at the
+      first failure, and exits with that command's own code.
+    </p>
+
+    <div class="mt-8 flex flex-wrap items-center gap-4">
+      <div class="terminal flex items-center gap-3 px-4 py-2.5 text-sm">
+        <span class="prompt">$</span>
+        <code>cargo install cargo-q --locked</code>
+        <button
+          type="button"
+          data-copy="cargo install cargo-q --locked"
+          class="ml-1 rounded border border-ink-700 px-2 py-0.5 text-xs text-sand-500 transition-colors hover:border-rust-600 hover:text-rust-400"
+        >
+          copy
+        </button>
+      </div>
+
+      <a
+        href="#rule"
+        class="text-sm text-rust-400 underline decoration-rust-700 underline-offset-4 transition-colors hover:text-rust-300"
+      >
+        What is the rule, exactly? ↓
+      </a>
+    </div>
+
+    <div class="mt-12">
+      <Terminal />
+    </div>
+
+    <p class="mt-4 text-sm text-sand-500">
+      The parser on this page is cargo-q's own, running in your browser. The cargo commands are
+      simulated: <code class="text-sand-300">cargo test</code> fails on purpose, so you can see
+      what a failure does. Try <code class="text-sand-300">echo $?</code> afterwards.
+    </p>
+
+    <div class="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        examples.map((example) => (
+          <button
+            type="button"
+            data-example={example.line}
+            class="group rounded border border-ink-800 bg-ink-900 px-4 py-2.5 text-left transition-colors hover:border-rust-700"
+          >
+            <code class="block truncate text-sm text-sand-100 transition-colors group-hover:text-rust-300">
+              {example.line}
+            </code>
+            <span class="mt-0.5 block text-xs text-sand-500">{example.note}</span>
+          </button>
+        ))
+      }
+    </div>
+
+    <div class="mt-6 flex flex-wrap items-center gap-3 text-xs text-sand-500">
+      <a
+        href="https://crates.io/crates/cargo-q"
+        class="rounded border border-ink-700 px-2 py-1 transition-colors hover:border-rust-600 hover:text-rust-400"
+        rel="noreferrer noopener"
+        target="_blank"
+      >
+        crates.io<span data-latest-version class="ml-1.5 text-rust-400"></span>
+      </a>
+      <span class="rounded border border-ink-700 px-2 py-1">MSRV 1.75</span>
+      <span class="rounded border border-ink-700 px-2 py-1">Apache-2.0</span>
+    </div>
+  </div>
+</section>
+
+<script>
+  // The examples type their line into the terminal above.
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-example]')) {
+    button.addEventListener('click', () => {
+      const line = button.dataset.example ?? '';
+      window.dispatchEvent(new CustomEvent('cargo-q:run', { detail: line }));
+    });
+  }
+</script>

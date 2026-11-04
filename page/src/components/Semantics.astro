@@ -1,0 +1,118 @@
+---
+const codes = [
+  { code: '0', meaning: 'every command succeeded' },
+  { code: "the child's code", meaning: 'the first command that failed — 101 from cargo test' },
+  { code: '128 + signal', meaning: 'that command was killed by a signal' },
+  { code: '130', meaning: 'interrupted with Ctrl-C' },
+];
+
+const steps = [
+  { command: 'cargo fmt', state: 'ok', note: 'done' },
+  { command: 'cargo clippy', state: 'failed', note: 'exit 101' },
+  { command: 'cargo test', state: 'skipped', note: 'never started' },
+];
+---
+
+<section id="failures" class="border-b border-ink-800 py-20 sm:py-28">
+  <div class="mx-auto max-w-6xl px-5">
+    <h2 class="text-2xl font-bold tracking-tight text-sand-50 sm:text-3xl">
+      The first failure ends the run
+    </h2>
+    <p class="mt-4 max-w-3xl leading-relaxed text-sand-300">
+      cargo-q stops at the first failure, the way <code class="text-sand-100">&amp;&amp;</code> does
+      in a shell, and exits with that command's own code. So <code class="text-sand-100"
+        >set -e</code
+      >, a CI step and an agent all see the same thing: a failure is a failure, and the commands
+      after it did not run. The recording below is a real run, captured from a terminal.
+    </p>
+
+    <div class="mt-10 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+      <div class="terminal overflow-hidden shadow-2xl shadow-black/40" data-recording-card>
+        <div class="terminal-bar justify-between">
+          <span>cargo q fmt clippy check test</span>
+          <button
+            type="button"
+            data-replay
+            class="rounded border border-ink-700 px-2 py-0.5 text-sand-500 transition-colors hover:border-rust-600 hover:text-rust-400"
+          >
+            replay
+          </button>
+        </div>
+        <div class="p-3 sm:p-4">
+          <div
+            class="h-[22rem]"
+            data-recording
+            data-src="/demo/fail.ansi"
+            data-command="cargo q fmt clippy check test"
+            aria-label="A cargo q run whose test fails"
+          >
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-6">
+        <div class="terminal p-5 sm:p-6">
+          <p class="text-xs uppercase tracking-[0.2em] text-sand-500">what a run does</p>
+          <ol class="mt-4 grid gap-2.5 text-sm">
+            {
+              steps.map((step, index) => (
+                <li class="flex items-baseline gap-3">
+                  <span class="w-5 shrink-0 text-right text-sand-500">{index + 1}</span>
+                  <span class="w-2 shrink-0 translate-y-[-1px]">
+                    {step.state === 'ok' && (
+                      <span class="text-moss-400" aria-label="succeeded">
+                        ●
+                      </span>
+                    )}
+                    {step.state === 'failed' && (
+                      <span class="text-ember-400" aria-label="failed">
+                        ●
+                      </span>
+                    )}
+                    {step.state === 'skipped' && (
+                      <span class="text-sand-500" aria-label="skipped">
+                        ○
+                      </span>
+                    )}
+                  </span>
+                  <code
+                    class={
+                      step.state === 'skipped'
+                        ? 'text-sand-500 line-through'
+                        : 'text-sand-100'
+                    }
+                  >
+                    {step.command}
+                  </code>
+                  <span class="ml-auto shrink-0 text-xs text-sand-500">{step.note}</span>
+                </li>
+              ))
+            }
+          </ol>
+          <p class="mt-5 text-sm leading-relaxed text-sand-500">
+            <code class="text-rust-400">-k</code> runs the rest anyway, and the exit code still
+            reports the first failure.
+          </p>
+        </div>
+
+        <div class="terminal p-5 sm:p-6">
+          <p class="text-xs uppercase tracking-[0.2em] text-sand-500">exit codes</p>
+          <table class="mt-4 w-full text-left text-sm">
+            <tbody>
+              {
+                codes.map((row) => (
+                  <tr class="border-t border-ink-800">
+                    <td class="w-44 py-2 pr-4 align-top whitespace-nowrap text-rust-400">
+                      {row.code}
+                    </td>
+                    <td class="py-2 text-sand-300">{row.meaning}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

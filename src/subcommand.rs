@@ -74,11 +74,38 @@ impl Subcommands {
         Self::default()
     }
 
+    /// The names cargo-q knows without asking cargo.
+    ///
+    /// Cargo's built-in subcommands, plus `clippy` and `fmt`. A caller that
+    /// cannot ask cargo can still say these are commands.
+    #[must_use]
+    pub fn well_known() -> &'static [&'static str] {
+        WELL_KNOWN
+    }
+
+    /// A lookup over an explicit set of names.
+    ///
+    /// For a caller that cannot ask cargo: one that has no cargo to ask, or
+    /// one that runs where cargo cannot be started. The names in
+    /// [`Self::well_known`] are always commands; besides those, a name in
+    /// the set is a command and every other name is not. That is the answer
+    /// a cargo would give whose extra subcommands are exactly these.
+    #[must_use]
+    pub fn with_names(names: &[&str]) -> Self {
+        Self::lookup(Some(names))
+    }
+
     /// A lookup over an explicit set, for tests.
     ///
     /// `None` is a lookup that never consulted cargo.
     #[cfg(test)]
     pub fn from_names(names: Option<&[&str]>) -> Self {
+        Self::lookup(names)
+    }
+
+    /// A lookup over an explicit set of names, or one that never consulted
+    /// cargo when there is no set.
+    fn lookup(names: Option<&[&str]>) -> Self {
         let discovered = OnceLock::new();
         let _ =
             discovered.set(names.map(|names| names.iter().copied().map(str::to_owned).collect()));
