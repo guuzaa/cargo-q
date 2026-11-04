@@ -6,10 +6,7 @@ const presets = [
   { line: 'cargo q fmt clippy check test', mark: '▶' },
   { line: 'cargo q -k test build', mark: '↷' },
   { line: 'cargo q -p check clippy doc', mark: '∥' },
-  { line: 'cargo q --repeat 3 check', mark: '×' },
-  { line: 'cargo q -n build --features=foo', mark: '?' },
   { line: 'cargo q build --features feature1', mark: '✗' },
-  { line: 'cargo q -v run', mark: '≡' },
 ];
 const keys = [
   ['↑', 'history'],
@@ -20,7 +17,7 @@ const keys = [
 ];
 ---
 
-<section id="demo" class="relative mx-auto max-w-5xl px-4 pt-8" aria-label="cargo-q in a terminal">
+<section id="playground" class="relative mx-auto max-w-5xl scroll-mt-24 px-4 pt-12 sm:pt-14" aria-label="cargo-q in a terminal">
   <div data-reveal>
     <div id="term-window" class="term-window" data-glow>
       <div class="term-bar flex h-10 items-center gap-3 border-b border-sand-50/5 px-4 text-xs text-sand-500">

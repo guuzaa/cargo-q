@@ -1,10 +1,16 @@
 ---
 /**
- * The one-line promise: four cargo commands folding into one. It sits in
+ * The one-line promise: cargo commands folding into one. It sits in
  * the hero, under the tagline, and the terminal that proves it is the next
  * thing on the page.
+ *
+ * A narrow screen gets a shorter example: the chain of four commands does
+ * not fit there at a size anyone can read.
  */
-const pieces: [string, 'program' | 'came' | 'command' | 'gone'][] = [
+type Kind = 'program' | 'came' | 'command' | 'gone';
+type Piece = [string, Kind];
+
+const wide: Piece[] = [
   ['cargo', 'program'],
   [' q', 'came'],
   [' fmt', 'command'],
@@ -15,42 +21,85 @@ const pieces: [string, 'program' | 'came' | 'command' | 'gone'][] = [
   [' && cargo', 'gone'],
   [' test', 'command'],
 ];
-const long = pieces.filter(([, kind]) => kind !== 'came').map(([text]) => text).join('');
-const short = pieces.filter(([, kind]) => kind !== 'gone').map(([text]) => text).join('');
-let gone = 0;
+const narrow: Piece[] = [
+  ['cargo', 'program'],
+  [' q', 'came'],
+  [' fmt', 'command'],
+  [' && cargo', 'gone'],
+  [' test', 'command'],
+];
+
+type Rendered = { text: string; kind: Kind; style?: string };
+const render = (pieces: Piece[]): Rendered[] => {
+  let gone = 0;
+  return pieces.map(([text, kind]) =>
+    kind === 'gone'
+      ? { text, kind, style: `--w: ${text.length + 0.5}ch; --i: ${gone++}` }
+      : { text, kind },
+  );
+};
+const joined = (pieces: Piece[], skip: Kind) =>
+  pieces
+    .filter(([, kind]) => kind !== skip)
+    .map(([text]) => text)
+    .join('');
+
+const variants = [
+  {
+    show: 'hidden md:block',
+    size: 'text-[min(1.75rem,2.75vw)]',
+    pieces: render(wide),
+    long: joined(wide, 'came'),
+    short: joined(wide, 'gone'),
+  },
+  {
+    show: 'md:hidden',
+    size: 'text-[min(1.4rem,6.2vw)]',
+    pieces: render(narrow),
+    long: joined(narrow, 'came'),
+    short: joined(narrow, 'gone'),
+  },
+];
 ---
 
 <div class="mt-7 text-center sm:mt-9" data-reveal style="--i: 2">
-  <div class="fold-scroll">
-    <div
-      class="inline-block cursor-pointer transition hover:brightness-110"
-      data-fold-card
-      role="button"
-      tabindex="0"
-      title="Click to fold or unfold"
-      aria-label={`${long} becomes ${short}. Fold or unfold it.`}
-    >
-      <div class="fold text-[min(1.75rem,2.75vw)] font-medium" data-fold aria-hidden="true">{
-        pieces.map(([text, kind]) =>
-          kind === 'gone' ? (
-            <span class="gone" style={`--w: ${text.length + 0.5}ch; --i: ${gone++}`}>{text}</span>
-          ) : kind === 'came' ? (
-            <span class="came">{text}</span>
-          ) : (
-            <span class={`r-${kind}`}>{text}</span>
-          ),
-        )
-      }</div>
-    </div>
-  </div>
+  {
+    variants.map((variant) => (
+      <div class={`fold-scroll ${variant.show}`}>
+        <div
+          class="inline-block cursor-pointer transition hover:brightness-110"
+          data-fold-card
+          role="button"
+          tabindex="0"
+          title="Click to fold or unfold"
+          aria-label={`${variant.long} becomes ${variant.short}. Fold or unfold it.`}
+        >
+          <div class={`fold font-medium ${variant.size}`} data-fold aria-hidden="true">{
+            variant.pieces.map((piece) =>
+              piece.kind === 'gone' ? (
+                <span class="gone" style={piece.style}>{piece.text}</span>
+              ) : piece.kind === 'came' ? (
+                <span class="came">{piece.text}</span>
+              ) : (
+                <span class={`r-${piece.kind}`}>{piece.text}</span>
+              ),
+            )
+          }</div>
+        </div>
+      </div>
+    ))
+  }
 </div>
 
 <script>
-  const card = document.querySelector<HTMLElement>('[data-fold-card]');
-  const fold = card?.querySelector<HTMLElement>('[data-fold]');
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  if (card && fold) {
+  // Every line on the page folds on its own: the wide one on a wide
+  // screen, the narrow one on a phone.
+  for (const card of document.querySelectorAll<HTMLElement>('[data-fold-card]')) {
+    const fold = card.querySelector<HTMLElement>('[data-fold]');
+    if (!fold) continue;
+
     const set = (folded: boolean) => {
       if (fold.hasAttribute('data-folded') === folded) return;
       fold.toggleAttribute('data-folded', folded);
