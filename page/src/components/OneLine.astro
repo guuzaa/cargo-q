@@ -4,29 +4,18 @@
  * the hero, under the tagline, and the terminal that proves it is the next
  * thing on the page.
  *
- * A narrow screen gets a shorter example: the chain of four commands does
- * not fit there at a size anyone can read.
+ * The chain is short enough for every screen: a wide one gets it in a
+ * larger size, a narrow one in a smaller one.
  */
 type Kind = 'program' | 'came' | 'command' | 'gone';
 type Piece = [string, Kind];
 
-const wide: Piece[] = [
+const chain: Piece[] = [
   ['cargo', 'program'],
   [' q', 'came'],
   [' fmt', 'command'],
-  [' && cargo', 'gone'],
-  [' clippy', 'command'],
   [' && cargo', 'gone'],
   [' check', 'command'],
-  [' && cargo', 'gone'],
-  [' test', 'command'],
-];
-const narrow: Piece[] = [
-  ['cargo', 'program'],
-  [' q', 'came'],
-  [' fmt', 'command'],
-  [' && cargo', 'gone'],
-  [' test', 'command'],
 ];
 
 type Rendered = { text: string; kind: Kind; style?: string };
@@ -44,21 +33,13 @@ const joined = (pieces: Piece[], skip: Kind) =>
     .map(([text]) => text)
     .join('');
 
+const rendered = render(chain);
+const long = joined(chain, 'came');
+const short = joined(chain, 'gone');
+
 const variants = [
-  {
-    show: 'hidden md:block',
-    size: 'text-[min(1.75rem,2.75vw)]',
-    pieces: render(wide),
-    long: joined(wide, 'came'),
-    short: joined(wide, 'gone'),
-  },
-  {
-    show: 'md:hidden',
-    size: 'text-[min(1.4rem,6.2vw)]',
-    pieces: render(narrow),
-    long: joined(narrow, 'came'),
-    short: joined(narrow, 'gone'),
-  },
+  { show: 'hidden md:block', size: 'text-[min(1.75rem,2.75vw)]' },
+  { show: 'md:hidden', size: 'text-[min(1.4rem,6.2vw)]' },
 ];
 ---
 
@@ -72,10 +53,10 @@ const variants = [
           role="button"
           tabindex="0"
           title="Click to fold or unfold"
-          aria-label={`${variant.long} becomes ${variant.short}. Fold or unfold it.`}
+          aria-label={`${long} becomes ${short}. Fold or unfold it.`}
         >
           <div class={`fold font-medium ${variant.size}`} data-fold aria-hidden="true">{
-            variant.pieces.map((piece) =>
+            rendered.map((piece) =>
               piece.kind === 'gone' ? (
                 <span class="gone" style={piece.style}>{piece.text}</span>
               ) : piece.kind === 'came' ? (

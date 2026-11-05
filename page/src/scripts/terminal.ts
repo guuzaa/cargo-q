@@ -23,7 +23,7 @@ const wasmEl = document.querySelector<HTMLElement>('#wasm-badge');
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const PRESETS = [
-  'cargo q fmt clippy check test',
+  'cargo q fmt check',
   'cargo q -k test build',
   'cargo q -p check clippy doc',
   'cargo q --repeat 3 check',

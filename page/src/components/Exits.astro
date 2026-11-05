@@ -26,15 +26,23 @@ const color: Record<string, string> = {
       rows.map((row, i) => (
         <button
           type="button"
-          class="exit-row group flex w-full items-center gap-4 px-5 py-4 text-left text-[0.8rem] sm:px-7 sm:text-sm"
+          class="exit-row group flex w-full items-center gap-3 px-5 py-4 text-left text-[0.8rem] sm:gap-4 sm:px-7 sm:text-sm"
           data-run={row.line}
           data-reroll
         >
-          <span class="run-arrow text-rust-500" aria-hidden="true">▶</span>
+          {/* The arrow is a hover mark: a phone never shows it, so it
+              does not take its space there either. */}
+          <span class="run-arrow hidden text-rust-500 sm:block" aria-hidden="true">▶</span>
           <Line line={row.line} class="min-w-0 truncate" />
           {row.key && <span class="kbd">{row.key}</span>}
           <span class="mx-1 h-px flex-1 border-t border-dashed border-sand-50/10" aria-hidden="true" />
-          <span class={`text-xl font-bold tabular-nums sm:text-2xl ${color[row.kind]}`} data-odometer={row.code} data-delay={i * 120}>
+          {/* The code keeps its own line: the odometer counts it in
+              digits, and digits that break apart read as two numbers. */}
+          <span
+            class={`shrink-0 whitespace-nowrap text-xl font-bold tabular-nums sm:text-2xl ${color[row.kind]}`}
+            data-odometer={row.code}
+            data-delay={i * 120}
+          >
             {row.code}
           </span>
         </button>
