@@ -1,0 +1,28 @@
+---
+/**
+ * The end of the page: where cargo-q lives, and what on this page is real.
+ */
+const links = [
+  { href: 'https://github.com/guuzaa/cargo-q', label: 'github' },
+  { href: 'https://crates.io/crates/cargo-q', label: 'crates.io' },
+  { href: 'https://docs.rs/cargo-q', label: 'docs.rs' },
+];
+---
+<footer class="mt-32 border-t border-sand-50/5 px-4 py-8 text-center text-xs text-sand-600">
+  <div class="flex justify-center gap-2 text-sm">
+    {
+      links.map((link) => (
+        <a
+          href={link.href}
+          class="group rounded-xl px-4 py-2 text-sand-500 transition-colors hover:bg-sand-50/5 hover:text-sand-50"
+        >
+          {link.label}
+          <span class="inline-block transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true">↗</span>
+        </a>
+      ))
+    }
+  </div>
+  <p class="mt-4">
+    Apache-2.0 · the parser on this page is cargo-q's own, in WebAssembly · cargo is simulated
+  </p>
+</footer>

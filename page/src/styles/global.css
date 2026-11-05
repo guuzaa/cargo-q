@@ -156,21 +156,6 @@
   background-clip: text;
   color: transparent;
 }
-.caret {
-  display: inline-block;
-  width: 0.5em;
-  height: 0.95em;
-  margin-left: 0.08em;
-  vertical-align: -0.1em;
-  background: var(--color-rust-500);
-  border-radius: 2px;
-  animation: blink 1.1s steps(1) infinite;
-}
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
-}
 
 /* ------------------------------------------------------------------ */
 /* The terminal window.                                                */

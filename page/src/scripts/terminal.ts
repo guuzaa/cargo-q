@@ -1,5 +1,5 @@
 /**
- * The terminal under the hero, and everything that reacts to it:
+ * The terminal on the page, and everything that reacts to it:
  * the split view, the exit-code badge, the window's glow and the presets.
  */
 
@@ -139,19 +139,25 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
     autoplay();
   };
 
-  // Play the first line once the terminal is in view, unless someone is
-  // already typing.
+  // Play the first line once the reader scrolls down to the terminal,
+  // unless someone is already typing. Opening the page runs nothing.
   let touched = false;
   host.addEventListener('keydown', () => (touched = true), { capture: true });
   host.addEventListener('pointerdown', () => (touched = true));
   const autoplay = () => {
+    const play = () => {
+      setTimeout(() => {
+        if (!touched) void shell.type(PRESETS[0], { instant: reduced });
+      }, 1200);
+    };
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         observer.disconnect();
-        setTimeout(() => {
-          if (!touched) void shell.type(PRESETS[0], { instant: reduced });
-        }, 1200);
+        // A terminal that is already on screen when the page opens waits
+        // for the first scroll: the page never runs a command by itself.
+        if (window.scrollY > 0) play();
+        else window.addEventListener('scroll', play, { once: true, passive: true });
       },
       { threshold: 0.5 },
     );

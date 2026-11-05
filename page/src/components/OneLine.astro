@@ -1,8 +1,8 @@
 ---
 /**
  * The one-line promise: cargo commands folding into one. It sits in
- * the hero, under the tagline, and the terminal that proves it is the next
- * thing on the page.
+ * the hero, under the tagline, and the terminal that proves it waits
+ * further down the page, behind the flags.
  *
  * The chain is short enough for every screen: a wide one gets it in a
  * larger size, a narrow one in a smaller one.
@@ -74,6 +74,9 @@ const variants = [
 
 <script>
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // The fold takes a little over a second each way: the pieces collapse,
+  // and `q` comes in a beat later.
+  const FOLD_MS = 1300;
 
   // Every line on the page folds on its own: the wide one on a wide
   // screen, the narrow one on a phone.
@@ -86,11 +89,23 @@ const variants = [
       fold.toggleAttribute('data-folded', folded);
     };
 
-    // Fold once, just after the hero has settled. The line then stays
-    // short; a click (or Enter/Space) folds or unfolds it.
-    const timer = window.setTimeout(() => set(true), reduced ? 0 : 1000);
+    // The line shows the trick twice: it folds, unfolds, and folds again,
+    // then stays short. A click (or Enter/Space) folds or unfolds it.
+    const timers: number[] = [];
+    const later = (ms: number, run: () => void) => timers.push(window.setTimeout(run, ms));
 
-    const stop = () => window.clearTimeout(timer);
+    if (reduced) {
+      later(0, () => set(true));
+    } else {
+      later(1000, () => set(true));
+      later(1000 + FOLD_MS, () => set(false));
+      later(1000 + FOLD_MS * 2, () => set(true));
+    }
+
+    // A hand on the card ends the show: the line stays as it is.
+    const stop = () => {
+      for (const timer of timers) window.clearTimeout(timer);
+    };
     card.addEventListener('pointerdown', stop, { passive: true });
     card.addEventListener('keydown', stop);
 
