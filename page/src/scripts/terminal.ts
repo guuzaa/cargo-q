@@ -140,10 +140,12 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
   };
 
   // Play the first line once the reader scrolls down to the terminal,
-  // unless someone is already typing. Opening the page runs nothing.
+  // unless someone is already at it: the terminal is marked when it
+  // takes the focus. On a phone a scroll that starts on it is a
+  // pointerdown, and must not look like the reader typing.
+  // Opening the page runs nothing.
   let touched = false;
-  host.addEventListener('keydown', () => (touched = true), { capture: true });
-  host.addEventListener('pointerdown', () => (touched = true));
+  host.addEventListener('focusin', () => (touched = true));
   const autoplay = () => {
     const play = () => {
       setTimeout(() => {
