@@ -11,6 +11,8 @@
     "build": "pnpm build:wasm && astro build",
     "build:wasm": "node scripts/build-wasm.mjs",
     "check": "node scripts/check-palette.mjs && astro check",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "preview": "astro preview",
     "deploy": "pnpm build && wrangler deploy",
     "astro": "astro"
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
     "@cloudflare/workers-types": "^5.20261103.1",
+    "@playwright/test": "1.49.1",
     "@tailwindcss/vite": "^4.3.4",
     "@types/node": "^24.19.2",
     "tailwindcss": "^4.3.4",

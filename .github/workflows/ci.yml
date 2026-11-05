@@ -92,3 +92,37 @@ jobs:
     - name: Build the page
       run: pnpm build
       working-directory: page
+
+  page-e2e:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 12.14.0
+
+    - name: Install Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+        cache-dependency-path: page/pnpm-lock.yaml
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+      working-directory: page
+
+    - name: Install the browser
+      run: pnpm exec playwright install --with-deps chromium
+      working-directory: page
+
+    - name: Run the end-to-end tests
+      run: pnpm test:e2e
+      working-directory: page

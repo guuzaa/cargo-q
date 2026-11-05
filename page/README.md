@@ -49,6 +49,31 @@ wrangler does not run under bun, so use the real one:
 PATH=/usr/bin:$PATH pnpm exec wrangler dev
 ```
 
+## The tests
+
+The page is tested from the outside, with a browser: Playwright drives the
+site the way a reader does, and the tests look at what the page shows.
+
+```bash
+pnpm exec playwright install chromium   # the browser the tests need
+pnpm test:e2e                           # the tests
+pnpm test:e2e:ui                       # the same, with the inspector open
+```
+
+The first run builds the parser (`pnpm build:wasm`), because the page asks
+it what a command line means.
+
+| The file | What it holds |
+| --- | --- |
+| `tests/e2e/smoke.spec.ts` | the page loads, the parser is there, and nothing is broken |
+| `tests/e2e/terminal.spec.ts` | the terminal: the split, the runs, the exit codes |
+| `tests/e2e/tables.spec.ts` | the tables of the page: every exit code it promises is the code the run leaves |
+| `tests/e2e/autoplay.spec.ts` | the first line the page plays, on a screen and on a phone |
+
+The terminal paints itself only while it is on the screen, so the tests
+scroll it into view before they read it. What they read is what is on the
+screen: the rows above it are not in the page.
+
 ## Deploying
 
 `wrangler deploy` publishes the assets and the Worker to Cloudflare. It
