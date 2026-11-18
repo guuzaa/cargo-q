@@ -5,16 +5,15 @@
  * a screen out of the bytes it is given, and the tests care about the bytes
  * rather than the pixels. The stand-in keeps them.
  *
- * Nothing in the page imports this: it is here because the tests that sit
- * next to the code need it.
+ * The wiring is the page's own (`src/scripts/page.ts`), so what a test says
+ * is about the page and not about a copy of it.
  */
 
 import type { Terminal } from '@xterm/xterm';
 import { vi } from 'vitest';
-import { buildParser } from '../lib/parser';
-import { Shell } from './shell';
-import { SplitView } from './split-view';
-import type { Parser } from './wasm';
+import { buildParser } from '../src/lib/parser';
+import { connect, type Page } from '../src/scripts/page';
+import type { Parser } from '../src/scripts/wasm';
 
 /** cargo-q's own parser, compiled to WebAssembly. */
 export function parser(): Promise<Parser> {
@@ -54,9 +53,9 @@ export class FakeTerminal {
   }
 }
 
-export interface Page {
-  shell: Shell;
-  view: SplitView;
+/** The page, and what the tests need to look at it with. */
+export interface FakePage extends Page {
+  /** The terminal that stands in for xterm.js. */
   terminal: FakeTerminal;
   /** The split the page draws under the terminal. */
   root: HTMLElement;
@@ -68,25 +67,21 @@ export interface Page {
   nextExit(): Promise<number>;
 }
 
-/** The page's own wiring: a shell, a split, and the terminal between them. */
-export function makePage(): Page {
+/** The page, with the terminal stood in for. */
+export function makePage(): FakePage {
   const root = document.createElement('div');
   const status = document.createElement('div');
   const live = document.createElement('p');
-  const view = new SplitView(root, status, live);
   const terminal = new FakeTerminal();
   const codes: number[] = [];
   const waiters: ((code: number) => void)[] = [];
 
-  const shell = new Shell(
+  const { shell, view } = connect(
     terminal as unknown as Terminal,
     parser(),
+    { split: root, status, live },
     {
-      input: (analysis) => view.input(analysis),
-      run: (inspection) => view.run(inspection),
-      task: (index, state, round) => view.task(index, state, round),
       exit: (code) => {
-        view.done();
         codes.push(code);
         waiters.shift()?.(code);
       },
@@ -111,7 +106,7 @@ export function makePage(): Page {
  * The clock is a fake one: the typing does not wait for the pauses a person
  * takes, and the run that follows is left to the test.
  */
-export async function type(page: Page, line: string, options: { run?: boolean } = {}): Promise<void> {
+export async function type(page: FakePage, line: string, options: { run?: boolean } = {}): Promise<void> {
   const typing = page.shell.type(line, { instant: true, ...options });
   await vi.advanceTimersByTimeAsync(1);
   await typing;
@@ -123,13 +118,13 @@ export async function settle(ms = 60_000): Promise<void> {
 }
 
 /** The commands the split shows, one by one. */
-export function commands(page: Page): string[] {
+export function commands(page: FakePage): string[] {
   return [...page.root.querySelectorAll('.pill-command')].map((pill) =>
     (pill.textContent ?? '').replace(/\s+/g, ' ').trim(),
   );
 }
 
 /** The state of every command of the split, in order. */
-export function states(page: Page): (string | null)[] {
+export function states(page: FakePage): (string | null)[] {
   return [...page.root.querySelectorAll('.pill-command')].map((pill) => pill.getAttribute('data-state'));
 }

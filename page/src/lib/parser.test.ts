@@ -1,10 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildParser, dryRun } from './parser';
-import { parser } from '../scripts/testing';
 
 beforeAll(async () => {
   // The parser is a wasm module: it is loaded before the clock is faked.
-  await parser();
+  await buildParser();
 });
 
 describe("cargo-q's parser", () => {

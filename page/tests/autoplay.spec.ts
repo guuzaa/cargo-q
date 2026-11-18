@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { open } from './helpers';
+import { open } from './e2e-support';
 
 test('the page plays its first line when the reader scrolls to it', async ({ page }) => {
   // given: the page is open, and nothing has run yet

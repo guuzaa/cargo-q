@@ -65,7 +65,10 @@ page is made of — cargo-q's parser (the same wasm the browser loads), the
 simulation of a run, the split under the terminal and the shell around it.
 The terminal is stood in for by one that keeps the bytes it is given, and
 the clock is a fake one, so a run that takes four seconds takes none at
-all. The tests sit next to the code they test.
+all. The tests sit next to the code they test; what they share lives in
+`tests/unit-support.ts`, and the wiring they use is the page's own
+(`src/scripts/page.ts`), so a test says something about the page and not
+about a copy of it.
 
 ```bash
 pnpm test          # the tests
@@ -80,6 +83,7 @@ means.
 | `src/lib/parser.test.ts` | cargo-q's parser: the split of a line, the errors, the plan |
 | `src/scripts/shell.test.ts` | the shell: what the split shows, the exit codes, the keys |
 | `src/lib/exits.test.ts` | every exit code the page promises is the code the run leaves |
+| `tests/unit-support.ts` | the stand-in for the browser: the terminal, the clock, the page |
 
 The second one is the site in a browser, for the few things only a browser
 can say: the order of the page on a screen, the terminal painting itself,
@@ -96,6 +100,7 @@ pnpm test:e2e:ui                       # the same, with the inspector open
 | `tests/smoke.spec.ts` | the page loads, the parser is there, and nothing is broken |
 | `tests/layout.spec.ts` | the order of the page: the flags on a wide screen, the terminal on a phone |
 | `tests/autoplay.spec.ts` | the first line the page plays, on a screen and on a phone |
+| `tests/e2e-support.ts` | what the browser tests share: opening the page |
 
 The terminal paints itself only while it is on the screen, so the browser
 tests scroll it into view before they read it. What they read is what is

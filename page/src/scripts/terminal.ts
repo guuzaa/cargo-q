@@ -7,8 +7,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { onRunRequest, wireRunButtons } from './bus';
-import { Shell } from './shell';
-import { SplitView } from './split-view';
+import { connect } from './page';
 import { parser } from './wasm';
 import { burst } from './motion';
 import { PALETTE, ansi } from './palette';
@@ -73,7 +72,6 @@ if (host && windowEl && splitEl && roundEl && exitEl && liveEl) {
   const fit = new FitAddon();
   term.loadAddon(fit);
 
-  const view = new SplitView(splitEl, roundEl, liveEl);
   const ready = parser();
 
   const setExit = (code: number) => {
@@ -91,17 +89,14 @@ if (host && windowEl && splitEl && roundEl && exitEl && liveEl) {
     }, 1400);
   };
 
-  const shell = new Shell(
+  const { shell } = connect(
     term,
     ready,
+    { split: splitEl, status: roundEl, live: liveEl },
     {
-      input: (analysis) => view.input(analysis),
-      run: (inspection) => view.run(inspection),
-      task: (index, state, round) => view.task(index, state, round),
       exit: (code, cargoQ) => {
         setExit(code);
         if (!cargoQ) return;
-        view.done();
         flash(code === 0 ? 'ok' : code === 130 ? 'int' : 'fail');
         if (code === 0 && !reduced) burst(exitEl);
       },

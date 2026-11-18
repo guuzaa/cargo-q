@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { commands, makePage, parser, settle, states, type, type Page } from './testing';
+import { commands, makePage, parser, settle, states, type, type FakePage } from '../../tests/unit-support';
 
 beforeAll(async () => {
   // The parser is a wasm module: it is loaded before the clock is faked.
@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 /** Type a line and let the run finish. */
-async function run(page: Page, line: string): Promise<number> {
+async function run(page: FakePage, line: string): Promise<number> {
   const exited = page.nextExit();
   await type(page, line);
   await settle();
