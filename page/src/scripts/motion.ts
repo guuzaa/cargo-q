@@ -32,6 +32,7 @@ export function spotlight(): void {
   let frame = 0;
   let x = 0;
   let y = 0;
+  const targets = [...document.querySelectorAll<HTMLElement>('[data-glow]')];
   window.addEventListener(
     'pointermove',
     (event) => {
@@ -42,15 +43,27 @@ export function spotlight(): void {
         frame = 0;
         document.documentElement.style.setProperty('--mx', `${x}px`);
         document.documentElement.style.setProperty('--my', `${y}px`);
-        for (const el of document.querySelectorAll<HTMLElement>('[data-glow]')) {
-          const box = el.getBoundingClientRect();
-          el.style.setProperty('--gx', `${x - box.left}px`);
-          el.style.setProperty('--gy', `${y - box.top}px`);
-        }
+        // Every box is read before any of them is written: reading a box
+        // and writing a style in turn would lay the page out again for
+        // every one of them.
+        const boxes = targets.map((el) => el.getBoundingClientRect());
+        targets.forEach((el, index) => {
+          el.style.setProperty('--gx', `${x - boxes[index].left}px`);
+          el.style.setProperty('--gy', `${y - boxes[index].top}px`);
+        });
       });
     },
     { passive: true },
   );
+}
+
+/** The nav becomes a surface once the page moves under it. */
+export function navState(): void {
+  const nav = document.querySelector<HTMLElement>('[data-nav]');
+  if (!nav) return;
+  const update = () => nav.toggleAttribute('data-scrolled', window.scrollY > 8);
+  update();
+  window.addEventListener('scroll', update, { passive: true });
 }
 
 /** `[data-copy]` buttons copy their text and say so. */

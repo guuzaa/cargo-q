@@ -16,6 +16,7 @@ import { PALETTE, ansi } from './palette';
 const host = document.querySelector<HTMLElement>('#terminal');
 const windowEl = document.querySelector<HTMLElement>('#term-window');
 const splitEl = document.querySelector<HTMLElement>('#split');
+const liveEl = document.querySelector<HTMLElement>('#split-live');
 const roundEl = document.querySelector<HTMLElement>('#split-round');
 const exitEl = document.querySelector<HTMLElement>('#exit-code');
 const wasmEl = document.querySelector<HTMLElement>('#wasm-badge');
@@ -34,11 +35,11 @@ const PRESETS = [
   'cargo q --help',
 ];
 
-if (host && windowEl && splitEl && roundEl && exitEl) {
+if (host && windowEl && splitEl && roundEl && exitEl && liveEl) {
   const term = new Terminal({
     fontFamily: "'JetBrains Mono Variable', ui-monospace, Menlo, monospace",
-    fontSize: window.innerWidth < 640 ? 11.5 : 13.5,
-    lineHeight: 1.25,
+    fontSize: window.innerWidth < 640 ? 12.5 : 13.5,
+    lineHeight: 1.15,
     cursorBlink: true,
     cursorStyle: 'bar',
     cursorWidth: 2,
@@ -72,7 +73,7 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
   const fit = new FitAddon();
   term.loadAddon(fit);
 
-  const view = new SplitView(splitEl, roundEl);
+  const view = new SplitView(splitEl, roundEl, liveEl);
   const ready = parser();
 
   const setExit = (code: number) => {
@@ -139,11 +140,12 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
     autoplay();
   };
 
-  // Play the first line once the reader scrolls down to the terminal,
-  // unless someone is already at it: the terminal is marked when it
-  // takes the focus. On a phone a scroll that starts on it is a
-  // pointerdown, and must not look like the reader typing.
-  // Opening the page runs nothing.
+  // Play the first line once the terminal comes on the screen, unless
+  // someone is already at it: the terminal is marked when it takes the
+  // focus. On a phone a scroll that starts on it is a pointerdown, and
+  // must not look like the reader typing.
+  // On a wide screen the terminal is below the fold, so opening the page
+  // runs nothing: the first line waits for the reader to go down to it.
   let touched = false;
   host.addEventListener('focusin', () => (touched = true));
   const autoplay = () => {
@@ -156,10 +158,10 @@ if (host && windowEl && splitEl && roundEl && exitEl) {
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         observer.disconnect();
-        // A terminal that is already on screen when the page opens waits
-        // for the first scroll: the page never runs a command by itself.
-        if (window.scrollY > 0) play();
-        else window.addEventListener('scroll', play, { once: true, passive: true });
+        // The terminal is on the screen: the reader is at it, and it
+        // shows what it does. On a phone it is there when the page
+        // opens, and the reader does not have to scroll to see it.
+        play();
       },
       { threshold: 0.5 },
     );

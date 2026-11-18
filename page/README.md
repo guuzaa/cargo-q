@@ -25,6 +25,13 @@ split is the real one — and the cargo commands are then simulated, so
 nothing runs on the visitor's machine. `cargo q --help` prints the real help
 text, and `echo $?` prints the exit code of the last run.
 
+The order of the page depends on the screen. On a wide one the flags come
+first and the terminal waits below them, so nothing runs until the reader
+goes down to it. On a narrow one the terminal comes first: it is the part
+of the page that shows what cargo-q does, and a phone should not have to
+scroll past a wall of flags to reach it. The terminal plays its first line
+when it comes on the screen, unless someone is already typing in it.
+
 ## Working on it
 
 ```bash
