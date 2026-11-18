@@ -4,6 +4,6 @@ export default defineConfig({
   test: {
     // The page is a DOM: the split under the terminal is drawn into one.
     environment: 'happy-dom',
-    include: ['src/**/*.test.ts'],
+    include: ['tests/unit/**/*.test.ts'],
   },
 });

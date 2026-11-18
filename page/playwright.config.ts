@@ -4,7 +4,7 @@ const port = 4322;
 const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: './tests/e2e',
   // The terminal is one, and a test waits for the run in it to be over.
   workers: 1,
   fullyParallel: false,

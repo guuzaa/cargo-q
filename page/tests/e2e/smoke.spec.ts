@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { open } from './e2e-support';
+import { open } from './utils';
 
 test('the page is the landing page of cargo-q', async ({ page }) => {
   // given: the page is open

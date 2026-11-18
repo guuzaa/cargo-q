@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { commands, makePage, parser, settle, states, type, type FakePage } from '../../tests/unit-support';
+import { commands, makePage, parser, settle, states, type, type FakePage } from './utils';
 
 beforeAll(async () => {
   // The parser is a wasm module: it is loaded before the clock is faked.

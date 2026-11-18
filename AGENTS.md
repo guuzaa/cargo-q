@@ -68,15 +68,16 @@ Worker. It has its own toolchain (pnpm) and its own README (`page/README.md`).
 - `page/public/demo/*.ansi` are recordings of real runs; `page/README.md`
   says how to record a new one.
 - The page has tests in two kinds. `pnpm test` in `page/` runs the page's
-  own code in Node (Vitest): the tests sit next to the code they test, in
-  `page/src/`, and what they share is in `page/tests/unit-support.ts` — a
-  terminal that keeps the bytes it is given, and a fake clock. The wiring
-  they use is production code (`page/src/scripts/page.ts`), the same one
-  the page uses. `pnpm test:e2e` drives the site in a browser (Playwright),
-  for the few things only a browser can say: the order of the page, the
-  terminal painting itself, and the first line playing. The browser tests
-  need a browser (`pnpm exec playwright install chromium`) and the wasm32
-  target, because the page asks the parser what a command line means.
+  own code in Node (Vitest): the tests live in `page/tests/unit/`, and what
+  they share is in `page/tests/unit/utils.ts` — a terminal that keeps the
+  bytes it is given, and a fake clock. The wiring they use is production
+  code (`page/src/scripts/page.ts`), the same one the page uses.
+  `pnpm test:e2e` drives the site in a browser (Playwright), for the few
+  things only a browser can say: the order of the page, the terminal
+  painting itself, and the first line playing. Its tests live in
+  `page/tests/e2e/`. The browser tests need a browser
+  (`pnpm exec playwright install chromium`) and the wasm32 target, because
+  the page asks the parser what a command line means.
 - The Rust CI also checks the wasm32 build; `.github/workflows/page.yml`
   deploys the site on a push to `main`.
 

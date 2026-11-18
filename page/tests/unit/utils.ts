@@ -11,9 +11,9 @@
 
 import type { Terminal } from '@xterm/xterm';
 import { vi } from 'vitest';
-import { buildParser } from '../src/lib/parser';
-import { connect, type Page } from '../src/scripts/page';
-import type { Parser } from '../src/scripts/wasm';
+import { buildParser } from '../../src/lib/parser';
+import { connect, type Page } from '../../src/scripts/page';
+import type { Parser } from '../../src/scripts/wasm';
 
 /** cargo-q's own parser, compiled to WebAssembly. */
 export function parser(): Promise<Parser> {

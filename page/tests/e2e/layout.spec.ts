@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { open } from './e2e-support';
+import { open } from './utils';
 
 /** How far down the page a section starts. */
 async function top(page: Page, selector: string): Promise<number> {
