@@ -139,8 +139,6 @@ if (host && windowEl && splitEl && roundEl && exitEl && liveEl) {
   // someone is already at it: the terminal is marked when it takes the
   // focus. On a phone a scroll that starts on it is a pointerdown, and
   // must not look like the reader typing.
-  // On a wide screen the terminal is below the fold, so opening the page
-  // runs nothing: the first line waits for the reader to go down to it.
   let touched = false;
   host.addEventListener('focusin', () => (touched = true));
   const autoplay = () => {
@@ -154,8 +152,8 @@ if (host && windowEl && splitEl && roundEl && exitEl && liveEl) {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         observer.disconnect();
         // The terminal is on the screen: the reader is at it, and it
-        // shows what it does. On a phone it is there when the page
-        // opens, and the reader does not have to scroll to see it.
+        // shows what it does. It is there when the page opens, and the
+        // reader does not have to scroll to see it.
         play();
       },
       { threshold: 0.5 },

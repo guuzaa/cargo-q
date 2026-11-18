@@ -25,11 +25,9 @@ split is the real one — and the cargo commands are then simulated, so
 nothing runs on the visitor's machine. `cargo q --help` prints the real help
 text, and `echo $?` prints the exit code of the last run.
 
-The order of the page depends on the screen. On a wide one the flags come
-first and the terminal waits below them, so nothing runs until the reader
-goes down to it. On a narrow one the terminal comes first: it is the part
-of the page that shows what cargo-q does, and a phone should not have to
-scroll past a wall of flags to reach it. The terminal plays its first line
+The terminal comes first on every screen: it is the part of the page that
+shows what cargo-q does, and nobody should have to scroll past a wall of
+flags to reach it. The flags follow it. The terminal plays its first line
 when it comes on the screen, unless someone is already typing in it.
 
 ## Working on it
@@ -98,7 +96,7 @@ pnpm test:e2e:ui                       # the same, with the inspector open
 | The file | What it holds |
 | --- | --- |
 | `tests/e2e/smoke.spec.ts` | the page loads, the parser is there, and nothing is broken |
-| `tests/e2e/layout.spec.ts` | the order of the page: the flags on a wide screen, the terminal on a phone |
+| `tests/e2e/layout.spec.ts` | the order of the page, and the width of the flags |
 | `tests/e2e/autoplay.spec.ts` | the first line the page plays, on a screen and on a phone |
 | `tests/e2e/utils.ts` | what the browser tests share: opening the page |
 
