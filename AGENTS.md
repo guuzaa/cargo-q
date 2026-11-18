@@ -67,10 +67,15 @@ Worker. It has its own toolchain (pnpm) and its own README (`page/README.md`).
   `cargo q "check --target wasm32-unknown-unknown"` must keep working.
 - `page/public/demo/*.ansi` are recordings of real runs; `page/README.md`
   says how to record a new one.
-- The page has end-to-end tests: Playwright drives the site in a browser
-  (`pnpm test:e2e` in `page/`). They need a browser
-  (`pnpm exec playwright install chromium`) and the wasm32 target, because
-  the page asks the parser what a command line means.
+- The page has tests in two kinds. `pnpm test` in `page/` runs the page's
+  own code in Node (Vitest): the tests sit next to the code they test, in
+  `page/src/`, and stand in for the browser — a terminal that keeps the
+  bytes it is given, and a fake clock. `pnpm test:e2e` drives the site in
+  a browser (Playwright), for the few things only a browser can say: the
+  order of the page, the terminal painting itself, and the first line
+  playing. The browser tests need a browser (`pnpm exec playwright install
+  chromium`) and the wasm32 target, because the page asks the parser what
+  a command line means.
 - The Rust CI also checks the wasm32 build; `.github/workflows/page.yml`
   deploys the site on a push to `main`.
 
