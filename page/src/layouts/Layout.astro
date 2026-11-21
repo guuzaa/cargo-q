@@ -50,9 +50,10 @@ const image = new URL('/og.png', Astro.site ?? Astro.url);
     </div>
     <slot />
     <script>
-      import { copyButtons, reveal, spotlight } from '../scripts/motion';
+      import { copyButtons, navState, reveal, spotlight } from '../scripts/motion';
       reveal();
       spotlight();
+      navState();
       copyButtons();
     </script>
   </body>

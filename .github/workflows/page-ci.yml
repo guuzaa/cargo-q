@@ -1,0 +1,74 @@
+name: Page CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'page/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/page-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'page/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/page-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: page-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  page:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 12.14.0
+
+    - name: Install Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+        cache-dependency-path: page/pnpm-lock.yaml
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+      working-directory: page
+
+    - name: Check the page
+      run: pnpm check
+      working-directory: page
+
+    - name: Run the tests of the page
+      run: pnpm test
+      working-directory: page
+
+    - name: Build the page
+      run: pnpm build
+      working-directory: page
+
+    - name: Install the browser
+      run: pnpm exec playwright install --with-deps chromium
+      working-directory: page
+
+    - name: Run the browser tests
+      run: pnpm test:e2e
+      working-directory: page

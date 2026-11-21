@@ -35,10 +35,13 @@ export class SplitView {
   private showingRun = false;
   private rounds = 1;
   private round = 0;
+  /** The timer of the announcement to the screen reader. */
+  private announceTimer = 0;
 
   constructor(
     private readonly root: HTMLElement,
     private readonly status: HTMLElement,
+    private readonly live: HTMLElement,
   ) {}
 
   input(analysis: Analysis): void {
@@ -48,11 +51,9 @@ export class SplitView {
     this.root.dataset.mode = 'edit';
     this.status.textContent = '';
     const focus = analysis.focus;
-    if (!focus) {
-      this.draw(analysis.line.trim() === '' ? [this.hint()] : []);
-      return;
-    }
-    this.draw(this.items(focus.inspection));
+    const items = !focus ? (analysis.line.trim() === '' ? [this.hint()] : []) : this.items(focus.inspection);
+    this.draw(items);
+    this.announce(items);
   }
 
   run(inspection: Inspection): void {
@@ -61,7 +62,9 @@ export class SplitView {
     this.rounds = inspection.settings.parallel ? 1 : inspection.settings.repeat;
     this.round = 0;
     this.root.dataset.mode = 'run';
-    this.draw(this.items(inspection));
+    const items = this.items(inspection);
+    this.draw(items);
+    this.announce(items, true);
     for (const pill of this.pills()) this.setState(pill, 'pending');
     this.updateRound();
   }
@@ -84,6 +87,40 @@ export class SplitView {
   }
 
   // ---------------------------------------------------------------------
+
+  /**
+   * What the split shows, said once for the screen reader.
+   *
+   * The split itself is not a live region: it changes on every keystroke,
+   * and a reader would hear all of it. The summary waits until the typing
+   * stops, and then says what the line came to.
+   */
+  private announce(items: Item[], now = false): void {
+    window.clearTimeout(this.announceTimer);
+    const say = () => {
+      const text = this.summary(items);
+      if (text === this.live.textContent) return;
+      this.live.textContent = text;
+    };
+    if (now) say();
+    else this.announceTimer = window.setTimeout(say, 700);
+  }
+
+  private summary(items: Item[]): string {
+    const plain = (item: Item) =>
+      item.html
+        .replace(/<[^>]*>/g, '')
+        .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+        .replace(/\s+/g, ' ')
+        .trim();
+    const error = items.find((item) => item.className.includes('pill-error'));
+    if (error) return plain(error);
+    const names = items
+      .filter((item) => item.className.includes('pill-command'))
+      .map((item) => plain(item).replace(/^cargo\s+/, ''));
+    if (names.length === 0) return '';
+    return `cargo q runs ${names.length} ${names.length === 1 ? 'command' : 'commands'}: ${names.join(', ')}`;
+  }
 
   private hint(): Item {
     return {

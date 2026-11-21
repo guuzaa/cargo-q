@@ -17,10 +17,10 @@ const keys = [
 ];
 ---
 
-<section id="playground" class="relative mx-auto max-w-5xl scroll-mt-24 px-4 pt-16 sm:pt-20" aria-labelledby="playground-title">
-  <h2 id="playground-title" class="sr-only">the terminal</h2>
+<section id="playground" class="relative mx-auto max-w-5xl scroll-mt-24 px-4 pt-16 sm:pt-24" aria-labelledby="playground-title">
+  <h2 id="playground-title" class="text-center text-xs uppercase tracking-[0.3em] text-sand-600" data-reveal>playground</h2>
 
-  <div data-reveal>
+  <div class="mt-6" data-reveal>
     <div id="term-window" class="term-window" data-glow>
       <div class="term-bar flex h-10 items-center gap-3 border-b border-sand-50/5 px-4 text-xs text-sand-500">
         <span class="flex gap-2" aria-hidden="true">
@@ -49,14 +49,17 @@ const keys = [
     </div>
 
     <div class="relative mt-5">
-      <div id="split" class="split" aria-live="polite" aria-label="How cargo-q splits the line"></div>
+      <div id="split" class="split" role="group" aria-label="How cargo-q splits the line"></div>
       <div id="split-round" class="mt-2 h-4 text-center text-xs text-rust-400"></div>
+      {/* The split is not a live region: it changes on every keystroke.
+          This one says what the line came to, once the typing stops. */}
+      <p id="split-live" class="sr-only" aria-live="polite"></p>
     </div>
 
     <div class="mt-4 flex flex-wrap justify-center gap-2">
       {
         presets.map((preset, i) => (
-          <button type="button" class="chip" data-run={preset.line} data-reveal style={`--i: ${3 + i * 0.5}`}>
+          <button type="button" class="chip min-h-11" data-run={preset.line} data-reveal style={`--i: ${3 + i * 0.5}`}>
             <span class="chip-mark" aria-hidden="true">{preset.mark}</span>
             {preset.line.slice('cargo q '.length)}
           </button>

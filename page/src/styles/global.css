@@ -128,6 +128,25 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* The nav: a surface over the page, once the page moves under it.     */
+
+.nav-bar {
+  border: 1px solid color-mix(in oklab, var(--color-sand-50) 5%, transparent);
+  background-color: color-mix(in oklab, var(--color-ink-900) 60%, transparent);
+  backdrop-filter: blur(24px);
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+/* Once the page moves under it, the nav is a surface and says so. */
+.nav-bar[data-scrolled] {
+  background-color: color-mix(in oklab, var(--color-ink-900) 90%, transparent);
+  border-color: color-mix(in oklab, var(--color-sand-50) 9%, transparent);
+  box-shadow: 0 12px 32px -16px rgb(0 0 0 / 0.9);
+}
+
+/* ------------------------------------------------------------------ */
 /* Reveal on scroll.                                                   */
 
 /* The fade only applies where scripting is on: a browser without it
@@ -242,7 +261,7 @@
 
 .exit {
   display: inline-flex;
-  min-width: 2.4em;
+  min-width: 3.4em;
   justify-content: center;
   padding: 0.1em 0.55em;
   border: 1px solid transparent;
@@ -380,7 +399,7 @@
 }
 .pill-note {
   color: var(--color-sand-500);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
 }
 .pill-command b {
   color: var(--color-ok);
@@ -518,7 +537,7 @@
   min-width: 1.6em;
   padding: 0.1em 0.45em;
   border-radius: 6px;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   color: var(--color-sand-300);
   background: linear-gradient(180deg, var(--color-ink-700), var(--color-ink-800));
   box-shadow:
@@ -802,6 +821,11 @@
   }
   .exit[data-kind='int'] {
     border-style: dashed;
+  }
+  /* The gradient is the brand: keep it, where the system takes every
+     other colour away. */
+  .title-q {
+    forced-color-adjust: none;
   }
 }
 

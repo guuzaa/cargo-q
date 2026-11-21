@@ -3,14 +3,8 @@
  * The exit code a run leaves behind: the first failure's own code.
  */
 import Line from './Line.astro';
+import { exits as rows } from '../lib/exits';
 
-const rows = [
-  { line: 'cargo q fmt check', code: 0, kind: 'ok' },
-  { line: 'cargo q check test build', code: 101, kind: 'fail' },
-  { line: 'cargo q build --features feature1', code: 1, kind: 'fail' },
-  { line: 'cargo q -p --repeat 2 check', code: 2, kind: 'fail' },
-  { line: 'cargo q watch', code: 130, kind: 'int', key: '^C' },
-];
 const color: Record<string, string> = {
   ok: 'text-ok',
   fail: 'text-fail',
@@ -18,7 +12,7 @@ const color: Record<string, string> = {
 };
 ---
 
-<section class="mx-auto max-w-3xl px-4 pt-32" aria-labelledby="exits-title">
+<section class="mx-auto max-w-3xl px-4 pt-16 sm:pt-24" aria-labelledby="exits-title">
   <h2 id="exits-title" class="text-center text-xs uppercase tracking-[0.3em] text-sand-600" data-reveal>echo $?</h2>
 
   <div class="card mt-6 divide-y divide-sand-50/5" data-glow data-reveal>

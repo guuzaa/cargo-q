@@ -25,6 +25,11 @@ split is the real one — and the cargo commands are then simulated, so
 nothing runs on the visitor's machine. `cargo q --help` prints the real help
 text, and `echo $?` prints the exit code of the last run.
 
+The terminal comes first on every screen: it is the part of the page that
+shows what cargo-q does, and nobody should have to scroll past a wall of
+flags to reach it. The flags follow it. The terminal plays its first line
+when it comes on the screen, unless someone is already typing in it.
+
 ## Working on it
 
 ```bash
@@ -48,6 +53,56 @@ wrangler does not run under bun, so use the real one:
 ```bash
 PATH=/usr/bin:$PATH pnpm exec wrangler dev
 ```
+
+## The tests
+
+The page is tested in two kinds.
+
+The first one is the page's own code, in Node: Vitest runs the modules the
+page is made of — cargo-q's parser (the same wasm the browser loads), the
+simulation of a run, the split under the terminal and the shell around it.
+The terminal is stood in for by one that keeps the bytes it is given, and
+the clock is a fake one, so a run that takes four seconds takes none at
+all. The tests live in `tests/unit/`; what they share lives in
+`tests/unit/utils.ts`, and the wiring they use is the page's own
+(`src/scripts/page.ts`), so a test says something about the page and not
+about a copy of it.
+
+```bash
+pnpm test          # the tests
+pnpm test:watch    # the same, and watch them
+```
+
+The parser is built first, because the page asks it what a command line
+means.
+
+| The file | What it holds |
+| --- | --- |
+| `tests/unit/parser.test.ts` | cargo-q's parser: the split of a line, the errors, the plan |
+| `tests/unit/shell.test.ts` | the shell: what the split shows, the exit codes, the keys |
+| `tests/unit/exits.test.ts` | every exit code the page promises is the code the run leaves |
+| `tests/unit/utils.ts` | the stand-in for the browser: the terminal, the clock, the page |
+
+The second one is the site in a browser, for the few things only a browser
+can say: the order of the page on a screen, the terminal painting itself,
+and the first line playing when the terminal comes on the screen.
+
+```bash
+pnpm exec playwright install chromium   # the browser the tests need
+pnpm test:e2e                           # the tests
+pnpm test:e2e:ui                       # the same, with the inspector open
+```
+
+| The file | What it holds |
+| --- | --- |
+| `tests/e2e/smoke.spec.ts` | the page loads, the parser is there, and nothing is broken |
+| `tests/e2e/layout.spec.ts` | the order of the page, and the width of the flags |
+| `tests/e2e/autoplay.spec.ts` | the first line the page plays, on a screen and on a phone |
+| `tests/e2e/utils.ts` | what the browser tests share: opening the page |
+
+The terminal paints itself only while it is on the screen, so the browser
+tests scroll it into view before they read it. What they read is what is
+on the screen: the rows above it are not in the page.
 
 ## Deploying
 

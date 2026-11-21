@@ -31,3 +31,8 @@ wasm/target/
 
 # the local state of `wrangler dev`
 .wrangler/
+
+# the end-to-end tests
+test-results/
+playwright-report/
+blob-report/
